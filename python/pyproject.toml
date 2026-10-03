@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snaircreator"
+version = "0.1.0b1"
+description = "Turn arbitrary audio into deterministic snare, clap, and hybrid one-shots."
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Circuit Drift Labs"}]
+
+[project.optional-dependencies]
+formats = ["soundfile>=0.12"]
+
+[project.scripts]
+snaircreator = "snaircreator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["snaircreator*"]
