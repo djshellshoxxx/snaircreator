@@ -1,0 +1,28 @@
+name: Native plugin builds
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
+      - name: Build Windows formats
+        if: runner.os == 'Windows'
+        run: cmake --build native/build --config Release --target SnairCreator_VST3 SnairCreator_CLAP SnairCreator_Standalone --parallel 2
+      - name: Build macOS formats
+        if: runner.os == 'macOS'
+        run: cmake --build native/build --config Release --target SnairCreator_VST3 SnairCreator_CLAP SnairCreator_AU SnairCreator_Standalone --parallel 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnairCreator-${{ runner.os }}
+          path: native/build/SnairCreator_artefacts/Release/
+          if-no-files-found: error
