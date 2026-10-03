@@ -47,12 +47,14 @@ private:
     snair::Analysis analysis;
     juce::File sourceFile;
     juce::String missingSourcePath;
+    double sourceSampleRate = 48000.0;
     double renderSampleRate = 48000.0;
     mutable juce::SpinLock renderedLock;
     std::vector<float> rendered;
     std::atomic<bool> previewRequested { false };
 
     snair::Params getParams() const;
+    std::vector<float> sourceAtRenderRate() const;
     void startVoice(float velocity);
     void parameterChanged(const juce::String&, float) override;
     void handleAsyncUpdate() override;
