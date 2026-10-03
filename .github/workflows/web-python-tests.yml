@@ -1,0 +1,29 @@
+name: Web and Python tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: JavaScript tests
+        run: |
+          npm test
+          node --check web/app.js
+          node --check web/engine.js
+          node --check web/wav.js
+      - name: Python tests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e python
+          python -m unittest discover -s python/tests -v
+          snaircreator --help
