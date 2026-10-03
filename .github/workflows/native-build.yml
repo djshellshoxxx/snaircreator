@@ -2,7 +2,12 @@ name: Native plugin builds
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: native-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
