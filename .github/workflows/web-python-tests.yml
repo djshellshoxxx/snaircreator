@@ -2,7 +2,12 @@ name: Web and Python tests
 
 on:
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: web-python-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
