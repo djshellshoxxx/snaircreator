@@ -79,9 +79,7 @@ void SnairCreatorAudioProcessor::rebuildRendered() {
     rendered.swap(next);
 }
 
-void SnairCreatorAudioProcessor::parameterChanged(const juce::String&, float) {
-    if (!source.empty()) triggerAsyncUpdate();
-}
+void SnairCreatorAudioProcessor::parameterChanged(const juce::String&, float) { if (!source.empty()) triggerAsyncUpdate(); }
 void SnairCreatorAudioProcessor::handleAsyncUpdate() { rebuildRendered(); }
 
 void SnairCreatorAudioProcessor::startVoice(float velocity) {
@@ -111,7 +109,9 @@ bool SnairCreatorAudioProcessor::exportRendered(const juce::File& file, int bitD
     { const juce::SpinLock::ScopedLockType lock(renderedLock); snapshot=rendered; }
     if(snapshot.empty()) return false;
     file.deleteFile(); juce::WavAudioFormat wav; auto stream=file.createOutputStream(); if(!stream) return false;
-    auto writer=std::unique_ptr<juce::AudioFormatWriter>(wav.createWriterFor(std::move(stream),renderSampleRate,1,bitDepth==16?16:24,{},0)); if(!writer) return false;
+    auto* rawStream=stream.release();
+    auto writer=std::unique_ptr<juce::AudioFormatWriter>(wav.createWriterFor(rawStream,renderSampleRate,1u,bitDepth==16?16:24,{},0));
+    if(!writer){delete rawStream;return false;}
     juce::AudioBuffer<float> b(1,static_cast<int>(snapshot.size())); b.copyFrom(0,0,snapshot.data(),static_cast<int>(snapshot.size()));
     return writer->writeFromAudioSampleBuffer(b,0,b.getNumSamples());
 }
