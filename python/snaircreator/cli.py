@@ -23,6 +23,7 @@ def build_parser():
     p.add_argument('--tail-ms', type=float, default=260)
     p.add_argument('--clap-count', type=int, default=4)
     p.add_argument('--clap-spread-ms', type=float, default=18)
+    p.add_argument('--width', type=float, default=.35)
     p.add_argument('--drive-db', type=float, default=4)
     p.add_argument('--tone', type=float, default=0)
     p.add_argument('--pitch-st', type=float, default=0)
@@ -35,7 +36,7 @@ def build_parser():
 
 
 def _params(ns):
-    keys = ['mode','seed','character','body','body_freq_hz','crack','noise','tail_ms','clap_count','clap_spread_ms','drive_db','tone','pitch_st','trim_db','output_ms']
+    keys = ['mode','seed','character','body','body_freq_hz','crack','noise','tail_ms','clap_count','clap_spread_ms','width','drive_db','tone','pitch_st','trim_db','output_ms']
     d = {k:getattr(ns,k) for k in keys}; d['normalize'] = not ns.no_normalize
     return d
 
