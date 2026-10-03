@@ -35,6 +35,7 @@ public:
     void triggerPreview() { previewRequested.store(true); }
     juce::String getSourceDescription() const;
     std::vector<float> getSourcePreview(int points) const;
+    float getMidiActivity() const { return midiActivity.load(); }
     snair::Analysis getAnalysis() const { return analysis; }
 
     juce::AudioProcessorValueTreeState apvts;
@@ -52,6 +53,7 @@ private:
     mutable juce::SpinLock renderedLock;
     std::vector<float> rendered;
     std::atomic<bool> previewRequested { false };
+    std::atomic<float> midiActivity { 0.0f };
 
     snair::Params getParams() const;
     std::vector<float> sourceAtRenderRate() const;
