@@ -41,3 +41,12 @@ target_link_libraries(SnairCreator PRIVATE juce::juce_audio_utils juce::juce_dsp
 clap_juce_extensions_plugin(TARGET SnairCreator
   CLAP_ID "com.circuitdriftlabs.snaircreator"
   CLAP_FEATURES instrument drum)
+
+enable_testing()
+juce_add_console_app(SnairCreatorTests PRODUCT_NAME "SnairCreatorTests")
+juce_generate_juce_header(SnairCreatorTests)
+target_sources(SnairCreatorTests PRIVATE tests/SnairEngineTests.cpp Source/SnairEngine.cpp Source/SnairEngine.h)
+target_include_directories(SnairCreatorTests PRIVATE Source)
+target_compile_definitions(SnairCreatorTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+target_link_libraries(SnairCreatorTests PRIVATE juce::juce_audio_utils PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
+add_test(NAME SnairEngine COMMAND SnairCreatorTests)
