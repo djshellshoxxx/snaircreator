@@ -59,10 +59,33 @@ bool SnairCreatorAudioProcessor::loadSourceFile(const juce::File& file) {
     juce::AudioFormatManager formats; formats.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
     if (!reader || reader->lengthInSamples <= 0) return false;
+
     const auto maxFrames = static_cast<juce::int64>(reader->sampleRate * 60.0);
-    const int frames = static_cast<int>(std::min(reader->lengthInSamples, maxFrames));
+    juce::int64 windowStart = 0;
+    if (reader->lengthInSamples > maxFrames) {
+        constexpr int scanFrames = 65536;
+        juce::AudioBuffer<float> scan(static_cast<int>(reader->numChannels), scanFrames);
+        float previous = 0.0f, strongestDelta = -1.0f;
+        juce::int64 strongestIndex = 0;
+        for (juce::int64 pos = 0; pos < reader->lengthInSamples; pos += scanFrames) {
+            const int count = static_cast<int>(std::min<juce::int64>(scanFrames, reader->lengthInSamples - pos));
+            scan.clear();
+            if (!reader->read(&scan, 0, count, pos, true, true)) return false;
+            for (int i=0;i<count;++i) {
+                float mono=0.0f;
+                for(int c=0;c<scan.getNumChannels();++c) mono += scan.getSample(c,i) / scan.getNumChannels();
+                const float delta=std::abs(mono-previous);
+                if(delta>strongestDelta){strongestDelta=delta; strongestIndex=pos+i;}
+                previous=mono;
+            }
+        }
+        const auto preroll=static_cast<juce::int64>(reader->sampleRate*2.0);
+        windowStart=juce::jlimit<juce::int64>(0,reader->lengthInSamples-maxFrames,strongestIndex-preroll);
+    }
+
+    const int frames = static_cast<int>(std::min(reader->lengthInSamples-windowStart, maxFrames));
     juce::AudioBuffer<float> temp(static_cast<int>(reader->numChannels), frames);
-    if (!reader->read(&temp, 0, frames, 0, true, true)) return false;
+    if (!reader->read(&temp, 0, frames, windowStart, true, true)) return false;
     source.assign(static_cast<size_t>(frames), 0.0f);
     for (int c=0;c<temp.getNumChannels();++c)
         for (int i=0;i<frames;++i) source[static_cast<size_t>(i)] += temp.getSample(c,i) / temp.getNumChannels();
