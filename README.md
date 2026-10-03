@@ -47,11 +47,13 @@ Render a directory:
 snaircreator ./source-folder -o ./generated --mode hybrid --recursive --seed 500
 ```
 
-Important flags include `--character`, `--body`, `--body-freq`, `--crack`, `--noise`, `--tail-ms`, `--clap-count`, `--clap-spread-ms`, `--drive-db`, `--tone`, `--pitch-st`, `--trim-db`, `--output-ms`, `--bit-depth`, and `--no-normalize`.
+Important flags include `--character`, `--body`, `--body-freq`, `--crack`, `--noise`, `--tail-ms`, `--clap-count`, `--clap-spread-ms`, `--width`, `--drive-db`, `--tone`, `--pitch-st`, `--trim-db`, `--output-ms`, `--bit-depth`, and `--no-normalize`.
 
 ## Native plugin / app
 
-The native target is a MIDI instrument. Load a source file in the GUI, then play any MIDI note to trigger the generated one-shot. Up to 16 hits can overlap. Velocity controls hit amplitude. The same plugin exposes automatable parameters for mode, seed, character, body, body frequency, crack, noise, tail, clap count/spread, width, drive, tone, pitch, trim, normalization and output length.
+The native target is a MIDI instrument. Load a source file in the GUI, then play any MIDI note to trigger the generated one-shot. Up to 16 hits can overlap. Velocity controls hit amplitude. The plugin exposes automatable parameters for mode, seed, character, body, body frequency, crack, noise, tail, clap count/spread, width, drive, tone, pitch, trim, normalization and output length.
+
+The native GUI includes a source waveform and analysis readout, Snare/Clap/Hybrid selector, Punch/Snap/Dirt/Size macros, all detailed parameters, Preview, Randomize, Mutate, Undo Mutation, Reset, WAV export, and `.snairpreset` save/load. Host state remembers the source path and reports clearly if the source must be reloaded on another machine.
 
 Build outputs:
 
