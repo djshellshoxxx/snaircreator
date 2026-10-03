@@ -1,53 +1,83 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
 from .audioio import render_file
+from .engine import DEFAULTS, sanitize_params
 
 SUPPORTED = {'.wav', '.flac', '.aif', '.aiff', '.ogg', '.mp3', '.m4a', '.aac'}
+PARAM_KEYS = ['mode','seed','character','body','body_freq_hz','crack','noise','tail_ms','clap_count','clap_spread_ms','width','drive_db','tone','pitch_st','trim_db','output_ms']
 
 
 def build_parser():
     p = argparse.ArgumentParser(prog='snaircreator', description='Turn audio files into unique snare/clap one-shots.')
     p.add_argument('input', type=Path, help='audio file or directory')
     p.add_argument('-o', '--output', type=Path, required=True, help='output WAV file or output directory')
-    p.add_argument('--mode', choices=['snare','clap','hybrid'], default='snare')
-    p.add_argument('--seed', type=int, default=1)
-    p.add_argument('--character', type=float, default=.72)
-    p.add_argument('--body', type=float, default=.68)
-    p.add_argument('--body-freq', dest='body_freq_hz', type=float, default=185)
-    p.add_argument('--crack', type=float, default=.72)
-    p.add_argument('--noise', type=float, default=.62)
-    p.add_argument('--tail-ms', type=float, default=260)
-    p.add_argument('--clap-count', type=int, default=4)
-    p.add_argument('--clap-spread-ms', type=float, default=18)
-    p.add_argument('--width', type=float, default=.35)
-    p.add_argument('--drive-db', type=float, default=4)
-    p.add_argument('--tone', type=float, default=0)
-    p.add_argument('--pitch-st', type=float, default=0)
-    p.add_argument('--trim-db', type=float, default=0)
-    p.add_argument('--output-ms', type=float, default=420)
+    p.add_argument('--preset', type=Path, help='load a SnairCreator JSON preset before applying CLI overrides')
+    p.add_argument('--save-preset', type=Path, help='save the resolved parameters as a SnairCreator JSON preset')
+    p.add_argument('--mode', choices=['snare','clap','hybrid'], default=argparse.SUPPRESS)
+    p.add_argument('--seed', type=int, default=argparse.SUPPRESS)
+    p.add_argument('--character', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--body', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--body-freq', dest='body_freq_hz', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--crack', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--noise', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--tail-ms', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--clap-count', type=int, default=argparse.SUPPRESS)
+    p.add_argument('--clap-spread-ms', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--width', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--drive-db', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--tone', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--pitch-st', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--trim-db', type=float, default=argparse.SUPPRESS)
+    p.add_argument('--output-ms', type=float, default=argparse.SUPPRESS)
     p.add_argument('--no-normalize', action='store_true')
     p.add_argument('--bit-depth', choices=[16,24], type=int, default=24)
     p.add_argument('--recursive', action='store_true', help='process subdirectories when input is a directory')
     return p
 
 
+def _load_preset(path: Path) -> dict:
+    data = json.loads(path.read_text(encoding='utf-8'))
+    if data.get('product') != 'SnairCreator' or data.get('schema') != 1 or not isinstance(data.get('parameters'), dict):
+        raise ValueError(f'unsupported preset: {path}')
+    return sanitize_params(data['parameters'])
+
+
 def _params(ns):
-    keys = ['mode','seed','character','body','body_freq_hz','crack','noise','tail_ms','clap_count','clap_spread_ms','width','drive_db','tone','pitch_st','trim_db','output_ms']
-    d = {k:getattr(ns,k) for k in keys}; d['normalize'] = not ns.no_normalize
-    return d
+    values = dict(DEFAULTS)
+    if ns.preset:
+        values.update(_load_preset(ns.preset))
+    for key in PARAM_KEYS:
+        if hasattr(ns, key):
+            values[key] = getattr(ns, key)
+    if ns.no_normalize:
+        values['normalize'] = False
+    return sanitize_params(values)
+
+
+def _save_preset(path: Path, params: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {'schema': 1, 'product': 'SnairCreator', 'parameters': params, 'seed': params['seed']}
+    path.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
 
 
 def main(argv=None):
     ns = build_parser().parse_args(argv)
     try:
+        params = _params(ns)
+        if ns.save_preset:
+            _save_preset(ns.save_preset, params)
+        mode = params['mode']
         if ns.input.is_file():
-            target = ns.output if ns.output.suffix.lower() == '.wav' else ns.output / f'{ns.input.stem}-{ns.mode}.wav'
-            report = render_file(ns.input, target, _params(ns), ns.bit_depth)
+            target = ns.output if ns.output.suffix.lower() == '.wav' else ns.output / f'{ns.input.stem}-{mode}.wav'
+            report = render_file(ns.input, target, params, ns.bit_depth)
             print(f'wrote {report.output_path} ({report.frames} frames @ {report.sample_rate} Hz)')
+            if ns.save_preset:
+                print(f'wrote preset {ns.save_preset}')
             return 0
         if not ns.input.is_dir():
             raise ValueError(f'input does not exist: {ns.input}')
@@ -58,9 +88,11 @@ def main(argv=None):
         for path in files:
             rel = path.relative_to(ns.input)
             out_dir = ns.output / rel.parent; out_dir.mkdir(parents=True, exist_ok=True)
-            out = out_dir / f'{path.stem}-{ns.mode}.wav'
-            report = render_file(path, out, _params(ns), ns.bit_depth)
+            out = out_dir / f'{path.stem}-{mode}.wav'
+            report = render_file(path, out, params, ns.bit_depth)
             print(f'wrote {report.output_path}')
+        if ns.save_preset:
+            print(f'wrote preset {ns.save_preset}')
         return 0
     except Exception as exc:
         print(f'snaircreator: {exc}', file=sys.stderr)
