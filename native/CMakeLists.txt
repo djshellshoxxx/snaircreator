@@ -20,7 +20,7 @@ juce_add_plugin(SnairCreator
   COMPANY_NAME "Circuit Drift Labs"
   BUNDLE_ID "com.circuitdriftlabs.snaircreator"
   PLUGIN_MANUFACTURER_CODE Cdlb
-  PLUGIN_CODE SnCr
+  PLUGIN_CODE Sncr
   FORMATS ${SNAIR_FORMATS}
   PRODUCT_NAME "SnairCreator"
   DESCRIPTION "Source-driven snare and clap generator"
