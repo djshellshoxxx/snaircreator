@@ -39,7 +39,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout SnairCreatorAudioProcessor::
 
 void SnairCreatorAudioProcessor::prepareToPlay(double sampleRate, int) {
     renderSampleRate = sampleRate > 1000.0 ? sampleRate : 48000.0;
-    if (!source.empty()) rebuildRendered();
+    if (!source.empty()) triggerAsyncUpdate();
 }
 
 bool SnairCreatorAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
@@ -66,21 +66,31 @@ bool SnairCreatorAudioProcessor::loadSourceFile(const juce::File& file) {
     source.assign(static_cast<size_t>(frames), 0.0f);
     for (int c=0;c<temp.getNumChannels();++c)
         for (int i=0;i<frames;++i) source[static_cast<size_t>(i)] += temp.getSample(c,i) / temp.getNumChannels();
-    sourceFile=file; missingSourcePath.clear(); analysis=snair::SnairEngine::analyse(source,reader->sampleRate); renderSampleRate=reader->sampleRate;
+    sourceSampleRate=reader->sampleRate; sourceFile=file; missingSourcePath.clear(); analysis=snair::SnairEngine::analyse(source,sourceSampleRate);
     if (auto* f=apvts.getParameter("body_freq_hz")) f->setValueNotifyingHost(f->convertTo0to1(analysis.bodyFreqHint));
     rebuildRendered();
     return true;
 }
 
-void SnairCreatorAudioProcessor::rebuildRendered() {
-    if (source.empty()) return;
-    auto next = snair::SnairEngine::render(source, renderSampleRate, getParams());
-    const juce::SpinLock::ScopedLockType lock(renderedLock);
-    rendered.swap(next);
+std::vector<float> SnairCreatorAudioProcessor::sourceAtRenderRate() const {
+    if (source.empty()) return {};
+    if (std::abs(sourceSampleRate-renderSampleRate) < 0.01) return source;
+    const auto outputFrames=static_cast<size_t>(std::max(1.0,std::round(source.size()*renderSampleRate/sourceSampleRate)));
+    std::vector<float> out(outputFrames,0.0f);
+    const double step=sourceSampleRate/renderSampleRate;
+    for(size_t i=0;i<outputFrames;++i){const double pos=static_cast<double>(i)*step;const size_t i0=std::min(source.size()-1,static_cast<size_t>(pos));const size_t i1=std::min(source.size()-1,i0+1);const float frac=static_cast<float>(pos-static_cast<double>(i0));out[i]=source[i0]*(1.0f-frac)+source[i1]*frac;}
+    return out;
 }
 
-void SnairCreatorAudioProcessor::parameterChanged(const juce::String&, float) { if (!source.empty()) triggerAsyncUpdate(); }
-void SnairCreatorAudioProcessor::handleAsyncUpdate() { rebuildRendered(); }
+void SnairCreatorAudioProcessor::rebuildRendered() {
+    if (source.empty()) return;
+    auto renderSource=sourceAtRenderRate();
+    auto next=snair::SnairEngine::render(renderSource,renderSampleRate,getParams());
+    const juce::SpinLock::ScopedLockType lock(renderedLock); rendered.swap(next);
+}
+
+void SnairCreatorAudioProcessor::parameterChanged(const juce::String&, float) { triggerAsyncUpdate(); }
+void SnairCreatorAudioProcessor::handleAsyncUpdate() { if(!source.empty()) rebuildRendered(); }
 
 void SnairCreatorAudioProcessor::startVoice(float velocity) {
     Voice* chosen=&voices[0]; for(auto& voice:voices) if(!voice.active){chosen=&voice;break;}
@@ -119,7 +129,7 @@ bool SnairCreatorAudioProcessor::exportRendered(const juce::File& file, int bitD
 juce::String SnairCreatorAudioProcessor::getSourceDescription() const {
     if(!missingSourcePath.isEmpty()) return "Source missing — reload: " + missingSourcePath;
     if(source.empty()) return "No source loaded";
-    return sourceFile.getFileName()+"  |  "+juce::String(analysis.duration,2)+" s  |  RMS "+juce::String(analysis.rms,3)+"  |  body "+juce::String(analysis.bodyFreqHint,0)+" Hz";
+    return sourceFile.getFileName()+"  |  "+juce::String(analysis.duration,2)+" s  |  "+juce::String(sourceSampleRate,0)+" Hz  |  RMS "+juce::String(analysis.rms,3)+"  |  body "+juce::String(analysis.bodyFreqHint,0)+" Hz";
 }
 
 std::vector<float> SnairCreatorAudioProcessor::getSourcePreview(int points) const {
@@ -130,7 +140,8 @@ std::vector<float> SnairCreatorAudioProcessor::getSourcePreview(int points) cons
 }
 
 void SnairCreatorAudioProcessor::getStateInformation(juce::MemoryBlock& dest) {
-    auto state=apvts.copyState(); state.setProperty("sourcePath",sourceFile.getFullPathName(),nullptr);
+    auto state=apvts.copyState();
+    state.setProperty("sourcePath",sourceFile.getFullPathName().isNotEmpty()?sourceFile.getFullPathName():missingSourcePath,nullptr);
     std::unique_ptr<juce::XmlElement> xml(state.createXml()); copyXmlToBinary(*xml,dest);
 }
 
