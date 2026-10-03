@@ -3,7 +3,16 @@
 
 SnairCreatorAudioProcessor::SnairCreatorAudioProcessor()
     : AudioProcessor(BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "PARAMS", createParameterLayout()) {}
+      apvts(*this, nullptr, "PARAMS", createParameterLayout()) {
+    for (auto id : {"mode","seed","character","body","body_freq_hz","crack","noise","tail_ms","clap_count","clap_spread_ms","width","drive_db","tone","pitch_st","trim_db","normalize","output_ms"})
+        apvts.addParameterListener(id, this);
+}
+
+SnairCreatorAudioProcessor::~SnairCreatorAudioProcessor() {
+    cancelPendingUpdate();
+    for (auto id : {"mode","seed","character","body","body_freq_hz","crack","noise","tail_ms","clap_count","clap_spread_ms","width","drive_db","tone","pitch_st","trim_db","normalize","output_ms"})
+        apvts.removeParameterListener(id, this);
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout SnairCreatorAudioProcessor::createParameterLayout() {
     using namespace juce;
@@ -52,7 +61,7 @@ bool SnairCreatorAudioProcessor::loadSourceFile(const juce::File& file) {
     juce::AudioFormatManager formats; formats.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
     if (!reader || reader->lengthInSamples <= 0) return false;
-    const auto maxFrames = static_cast<juce::int64>(reader->sampleRate * 60.0); // bounded beta analysis window
+    const auto maxFrames = static_cast<juce::int64>(reader->sampleRate * 60.0);
     const int frames = static_cast<int>(std::min(reader->lengthInSamples, maxFrames));
     juce::AudioBuffer<float> temp(static_cast<int>(reader->numChannels), frames);
     if (!reader->read(&temp, 0, frames, 0, true, true)) return false;
@@ -71,6 +80,14 @@ void SnairCreatorAudioProcessor::rebuildRendered() {
     if (source.empty()) return;
     auto next = std::make_shared<const std::vector<float>>(snair::SnairEngine::render(source, renderSampleRate, getParams()));
     std::atomic_store(&rendered, std::move(next));
+}
+
+void SnairCreatorAudioProcessor::parameterChanged(const juce::String&, float) {
+    if (!source.empty()) triggerAsyncUpdate();
+}
+
+void SnairCreatorAudioProcessor::handleAsyncUpdate() {
+    rebuildRendered();
 }
 
 void SnairCreatorAudioProcessor::startVoice(float velocity) {
