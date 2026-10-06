@@ -56,6 +56,7 @@ std::shared_ptr<SourceAudio> SourceLoader::decode(const juce::File& file,
 
     auto source = std::make_shared<SourceAudio>();
     source->sourceFile = file;
+    source->fileSizeBytes = file.getSize();
     source->sampleRate = reader->sampleRate;
     source->channelCount = static_cast<int>(reader->numChannels);
     source->frameCount = reader->lengthInSamples;
