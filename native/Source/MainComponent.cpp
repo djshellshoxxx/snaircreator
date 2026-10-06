@@ -133,7 +133,6 @@ void MainComponent::configureButton(juce::TextButton& button)
     button.setColour(juce::TextButton::buttonOnColourId, accentColour.withAlpha(0.20f));
     button.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     button.setColour(juce::TextButton::textColourOnId, accentColour);
-    button.setColour(juce::TextButton::outlineColourId, borderColour);
 }
 
 void MainComponent::paint(juce::Graphics& graphics)
