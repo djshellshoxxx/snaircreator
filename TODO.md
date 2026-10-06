@@ -1,24 +1,20 @@
 # SnairCreator TODO
 
 ## Current status
-Design and implementation plan are approved; no implementation source was present during repository audit. Focused implementation specifications and coverage tracking are now linked. All implementation/host checks remain pending.
+Standalone-first implementation has started. The first code slice adds a JUCE desktop application shell and a responsive source/mode GUI. Loading currently identifies supported audio files and shows metadata; audio transformation, preview playback, presets, and WAV export are not implemented yet.
 
 ## Next work
-1. Reconcile the implementation plan's editor dimensions with DECISIONS.md.
-2. Pin JUCE and CLAP extension versions and document reproducible provisioning/licensing.
-3. Scaffold CMake targets and native tests.
-4. Implement stable parameter model and deterministic RNG.
-5. Implement WAV/AIFF source loader and analyzer.
-6. Implement offline Snare and Clap renderers with safe source fallbacks.
-7. Add realtime playback/MIDI and background render controller.
-8. Add persistent host state, presets and missing-source recovery.
-9. Add exact-current-render WAV export.
-10. Build the GUI and wire every action/control.
-11. Add CI, docs, real-host validation and a full coverage audit.
+1. Build and launch the standalone shell on Windows; add macOS build verification.
+2. Implement bounded WAV/AIFF decoding, source ownership, and waveform display.
+3. Implement deterministic source analysis and the first Snare render path.
+4. Implement Clap rendering, then safe preview playback.
+5. Wire controls to the render engine and enable actions only when valid output exists.
+6. Add WAV export of the exact current render.
+7. Add presets, randomize/mutate/undo, and standalone project/session recovery.
+8. Add platform CI and a requirement coverage audit.
+9. After the standalone workflow is stable, add VST3, CLAP, and AU as separate delivery work.
 
 ## Release blockers
-- No source implementation yet.
-- Dependency revisions and provisioning are not pinned.
-- Silence source behavior is undecided.
-- Host-state size limit and rendered-hit persistence strategy need a decision.
-- Windows/macOS hosts and listening validation are not yet evidenced.
+- Native builds and GUI behavior have not yet been verified on Windows or macOS.
+- Audio decoding, analysis, sound generation, playback, export, and persistence remain incomplete.
+- JUCE licensing/distribution terms must be checked for the intended release model before shipping.
