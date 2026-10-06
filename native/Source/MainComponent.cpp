@@ -136,7 +136,7 @@ MainComponent::MainComponent()
         if(renderRequired)
             renderCurrent("Advanced parameter");
         else
-            saveSessionAsync(parameters,renderedHit.load(std::memory_order_acquire),
+            saveSessionAsync(parameters,std::atomic_load_explicit(&renderedHit,std::memory_order_acquire),
                              source?source->sourceFile:juce::File{});
     };
     advancedPanel.setVisible(false);
@@ -380,7 +380,7 @@ void MainComponent::renderCurrent(const juce::String& reason)
                 return;
             }
 
-            safe->renderedHit.store(hit,std::memory_order_release);
+            safe->std::atomic_store_explicit(&renderedHit,RenderedHitPtr(hit),std::memory_order_release);
             safe->playbackTrimGain.store(
                 juce::Decibels::decibelsToGain(parameterSnapshot.outputTrimDb),
                 std::memory_order_release);
@@ -399,7 +399,7 @@ void MainComponent::renderCurrent(const juce::String& reason)
 void MainComponent::refreshActionState()
 {
     const bool hasSource=static_cast<bool>(source);
-    const bool hasHit=static_cast<bool>(renderedHit.load(std::memory_order_acquire));
+    const bool hasHit=static_cast<bool>(std::atomic_load_explicit(&renderedHit,std::memory_order_acquire));
     previewButton.setEnabled(hasHit);
     exportButton.setEnabled(hasHit);
     randomizeButton.setEnabled(hasSource);
@@ -450,7 +450,7 @@ void MainComponent::setMode(bool clap)
 
 void MainComponent::startPreview()
 {
-    if(renderedHit.load(std::memory_order_acquire))
+    if(std::atomic_load_explicit(&renderedHit,std::memory_order_acquire))
     {
         previewPosition.store(0,std::memory_order_release);
         previewActive.store(true,std::memory_order_release);
@@ -500,7 +500,7 @@ void MainComponent::resetParameters()
 
 void MainComponent::exportWav()
 {
-    auto hit=renderedHit.load(std::memory_order_acquire);
+    auto hit=std::atomic_load_explicit(&renderedHit,std::memory_order_acquire);
     if(!hit) return;
 
     syncParametersFromControls();
@@ -620,7 +620,7 @@ void MainComponent::handleAsyncUpdate()
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& out)
 {
     out.clearActiveBufferRegion();
-    auto hit=renderedHit.load(std::memory_order_acquire);
+    auto hit=std::atomic_load_explicit(&renderedHit,std::memory_order_acquire);
     if(!hit || !previewActive.load(std::memory_order_acquire)) return;
 
     const int pos=previewPosition.load(std::memory_order_acquire);
@@ -728,7 +728,7 @@ void MainComponent::restoreSession()
             safe->syncControlsFromParameters();
             if(restored.hit)
             {
-                safe->renderedHit.store(restored.hit,std::memory_order_release);
+                safe->std::atomic_store_explicit(&renderedHit,restored.hit,std::memory_order_release);
                 safe->sourceNameLabel.setText("Recovered previous render",juce::dontSendNotification);
                 safe->sourceDetailsLabel.setText(
                     juce::String(restored.hit->samples.getNumChannels())+" ch • "
