@@ -8,6 +8,12 @@
 namespace
 {
 const juce::Colour bg{15,18,23}, panel{24,29,37}, border{48,58,70}, accent{47,202,224}, muted{145,157,171};
+
+juce::String legalStem(juce::String value)
+{
+    value=value.replaceCharacters("\\\/:*?\"<>|","_________").trim();
+    return value.isNotEmpty()?value:"Source";
+}
 }
 
 MainComponent::MainComponent()
@@ -457,23 +463,38 @@ void MainComponent::exportWav()
     auto hit=renderedHit.load(std::memory_order_acquire);
     if(!hit) return;
 
+    syncParametersFromControls();
+    const auto p=parameters;
+    const auto options=advancedPanel.exportOptions(p.outputTrimDb);
+    const auto sourceStem=legalStem(source?source->sourceFile.getFileNameWithoutExtension():"Recovered");
+    const auto seed=juce::String(p.seed).paddedLeft('0',4);
+    const auto defaultName="SnairCreator_"
+        +juce::String(p.mode==SnairMode::clap?"Clap":"Snare")
+        +"_"+sourceStem+"_"+seed+".wav";
+
     fileChooser=std::make_unique<juce::FileChooser>(
         "Export WAV",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory)
-            .getChildFile("SnairCreator_"+juce::String(parameters.mode==SnairMode::clap?"Clap":"Snare")
-                          +"_"+juce::String(parameters.seed)+".wav"),
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(defaultName),
         "*.wav");
 
-    auto p=parameters;
     juce::Component::SafePointer<MainComponent> safe(this);
     fileChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::warnAboutOverwriting,
-        [safe,hit,p](const juce::FileChooser& chooser)
+        [safe,hit,p,options](const juce::FileChooser& chooser)
         {
             if(!safe || chooser.getResult()==juce::File{}) return;
-            const auto options=safe->advancedPanel.exportOptions(p.outputTrimDb);
             juce::String error;
-            if(WavExporter::write(chooser.getResult(),*hit,options,error))
-                safe->statusLabel.setText("Exported "+chooser.getResult().getFileName(),juce::dontSendNotification);
+            const auto target=chooser.getResult().withFileExtension(".wav");
+            if(WavExporter::write(target,*hit,options,error))
+            {
+                const double rate=options.sampleRate>0.0?options.sampleRate:hit->sampleRate;
+                const double duration=hit->samples.getNumSamples()/hit->sampleRate;
+                safe->statusLabel.setText(
+                    "Exported "+target.getFileName()+" • "
+                    +juce::String(duration,3)+" s • "
+                    +juce::String((int)rate)+" Hz • "
+                    +juce::String(options.bitDepth)+"-bit",
+                    juce::dontSendNotification);
+            }
             else
                 safe->statusLabel.setText(error,juce::dontSendNotification);
         });
