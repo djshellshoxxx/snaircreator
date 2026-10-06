@@ -387,7 +387,7 @@ void MainComponent::renderCurrent(const juce::String& reason)
                 return;
             }
 
-            safe->std::atomic_store_explicit(&renderedHit,RenderedHitPtr(hit),std::memory_order_release);
+            std::atomic_store_explicit(&safe->renderedHit,RenderedHitPtr(hit),std::memory_order_release);
             safe->playbackTrimGain.store(
                 juce::Decibels::decibelsToGain(parameterSnapshot.outputTrimDb),
                 std::memory_order_release);
@@ -735,7 +735,7 @@ void MainComponent::restoreSession()
             safe->syncControlsFromParameters();
             if(restored.hit)
             {
-                safe->std::atomic_store_explicit(&renderedHit,restored.hit,std::memory_order_release);
+                std::atomic_store_explicit(&safe->renderedHit,restored.hit,std::memory_order_release);
                 safe->sourceNameLabel.setText("Recovered previous render",juce::dontSendNotification);
                 safe->sourceDetailsLabel.setText(
                     juce::String(restored.hit->samples.getNumChannels())+" ch • "
