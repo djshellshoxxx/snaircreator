@@ -31,3 +31,8 @@ Follow implementation plan Tasks 1–9: native skeleton; parameter model/RNG; so
 The approved design specifies default editor size 1000 × 700 and minimum 760 × 520; the implementation plan's GUI task gives different dimensions. DECISIONS.md resolves this in favor of the approved design. Update the plan before GUI implementation. The design's platform section is authoritative: Windows and macOS first; Linux is optional, AAX out of scope.
 
 No requirement is complete until docs/spec-coverage.md links it to implementation and concrete verification evidence.
+
+
+## Delivery order
+
+- [Standalone-first specification](standalone-first.md) — first native desktop deliverable; plugin formats are deferred.
