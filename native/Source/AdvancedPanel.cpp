@@ -20,6 +20,15 @@ AdvancedPanel::AdvancedPanel()
     configureSlider(11,"OUTPUT TRIM",-24.0,12.0,0.1);
     configureSlider(12,"SEED",0.0,2147483647.0,1.0);
 
+    const SnairParameters defaults;
+    const double defaultValues[parameterCount]={
+        defaults.bodyFreqHz,defaults.attack,defaults.noise,defaults.tailMs,defaults.pitchSt,
+        defaults.tone,defaults.driveDb,defaults.width,static_cast<double>(defaults.clapCount),
+        defaults.clapSpreadMs,defaults.crossBlend,defaults.outputTrimDb,static_cast<double>(defaults.seed)
+    };
+    for(int i=0;i<parameterCount;++i)
+        sliders[(size_t)i].setDoubleClickReturnValue(true,defaultValues[i]);
+
     normalizeRender.setTooltip("Normalize the generated hit before it becomes the active render.");
     normalizeRender.onClick=[this]{notify(true);};
     content.addAndMakeVisible(normalizeRender);
