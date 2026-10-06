@@ -1,4 +1,5 @@
 #include <JuceHeader.h>
+#include <limits>
 #include "Parameters.h"
 #include "FactoryPresets.h"
 #include "SourceLoader.h"
