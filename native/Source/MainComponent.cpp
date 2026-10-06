@@ -2,6 +2,7 @@
 #include "SourceAnalyzer.h"
 #include "SourceLoader.h"
 #include "SnairEngine.h"
+#include "SessionStore.h"
 #include "WavExporter.h"
 
 namespace
@@ -38,7 +39,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(sourceHintLabel);
     addAndMakeVisible(waveform);
 
-    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&loadPresetButton})
+    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&loadPresetButton,&advancedButton})
     {
         configureButton(*b);
         addAndMakeVisible(*b);
@@ -53,6 +54,7 @@ MainComponent::MainComponent()
     exportButton.onClick=[this]{exportWav();};
     savePresetButton.onClick=[this]{savePreset();};
     loadPresetButton.onClick=[this]{loadPreset();};
+    advancedButton.onClick=[this]{toggleAdvanced();};
 
     snareButton.setRadioGroupId(1);
     clapButton.setRadioGroupId(1);
@@ -88,6 +90,19 @@ MainComponent::MainComponent()
         addAndMakeVisible(s);
     }
 
+    advancedPanel.onParameterCommit=[this](bool renderRequired)
+    {
+        syncParametersFromControls();
+        playbackTrimGain.store(juce::Decibels::decibelsToGain(parameters.outputTrimDb),std::memory_order_release);
+        if(renderRequired)
+            renderCurrent("Advanced parameter");
+        else
+            saveSessionAsync(parameters,renderedHit.load(std::memory_order_acquire),
+                             source?source->sourceFile:juce::File{});
+    };
+    advancedPanel.setVisible(false);
+    addAndMakeVisible(advancedPanel);
+
     statusLabel.setText("Load a source to generate a snare or clap.",juce::dontSendNotification);
     statusLabel.setColour(juce::Label::textColourId,muted);
     addAndMakeVisible(statusLabel);
@@ -96,6 +111,7 @@ MainComponent::MainComponent()
     refreshActionState();
     setAudioChannels(0,2);
     setSize(1000,700);
+    restoreSession();
 }
 
 MainComponent::~MainComponent()
@@ -105,6 +121,7 @@ MainComponent::~MainComponent()
     ++renderRequest;
     sourceWorker.removeAllJobs(true,10000);
     renderWorker.removeAllJobs(true,10000);
+    sessionWorker.removeAllJobs(true,10000);
     shutdownAudio();
 }
 
@@ -162,18 +179,34 @@ void MainComponent::resized()
     snareButton.setBounds(mr.removeFromLeft(130));
     mr.removeFromLeft(8);
     clapButton.setBounds(mr.removeFromLeft(130));
+    advancedButton.setBounds(mr.removeFromRight(110));
+    mr.removeFromRight(8);
     characterLabel.setBounds(mr.removeFromLeft(150));
-    sourceCharacterSlider.setBounds(mr.removeFromLeft(300));
+    sourceCharacterSlider.setBounds(mr.removeFromLeft(std::min(300,mr.getWidth())));
     a.removeFromTop(10);
 
     auto ctr=a.removeFromTop(230).reduced(14);
-    auto labels=ctr.removeFromTop(18);
-    auto knobs=ctr.removeFromTop(125);
-    int w=knobs.getWidth()/macroCount;
-    for(int i=0;i<macroCount;++i)
+    auto editorArea=ctr.removeFromTop(143);
+    if(advancedVisible)
     {
-        macroLabels[(size_t)i].setBounds(labels.removeFromLeft(w));
-        macroSliders[(size_t)i].setBounds(knobs.removeFromLeft(w).reduced(4));
+        advancedPanel.setBounds(editorArea);
+        for(int i=0;i<macroCount;++i)
+        {
+            macroLabels[(size_t)i].setBounds({});
+            macroSliders[(size_t)i].setBounds({});
+        }
+    }
+    else
+    {
+        advancedPanel.setBounds({});
+        auto labels=editorArea.removeFromTop(18);
+        auto knobs=editorArea;
+        int w=knobs.getWidth()/macroCount;
+        for(int i=0;i<macroCount;++i)
+        {
+            macroLabels[(size_t)i].setBounds(labels.removeFromLeft(w));
+            macroSliders[(size_t)i].setBounds(knobs.removeFromLeft(w).reduced(4));
+        }
     }
 
     auto actions=ctr.removeFromTop(36);
@@ -216,6 +249,7 @@ void MainComponent::chooseSource()
 
 void MainComponent::loadSource(const juce::File& file)
 {
+    recoverySuperseded.store(true,std::memory_order_release);
     const auto request=++sourceRequest;
     ++renderRequest;
     renderWorker.removeAllJobs(false,0);
@@ -310,6 +344,8 @@ void MainComponent::renderCurrent(const juce::String& reason)
                 +(hit->usedFallback?" • reinforced source":""),
                 juce::dontSendNotification);
             safe->refreshActionState();
+            safe->saveSessionAsync(parameterSnapshot,hit,
+                                   safe->source?safe->source->sourceFile:juce::File{});
         });
     });
 }
@@ -325,6 +361,10 @@ void MainComponent::refreshActionState()
     resetButton.setEnabled(hasSource);
     savePresetButton.setEnabled(hasSource || hasHit);
     undoButton.setEnabled(hasUndo && hasSource);
+    snareButton.setEnabled(hasSource);
+    clapButton.setEnabled(hasSource);
+    sourceCharacterSlider.setEnabled(hasSource);
+    for(auto& slider:macroSliders) slider.setEnabled(hasSource);
 }
 
 void MainComponent::syncParametersFromControls()
@@ -336,6 +376,7 @@ void MainComponent::syncParametersFromControls()
     parameters.texture=(float)macroSliders[3].getValue();
     parameters.dirt=(float)macroSliders[4].getValue();
     parameters.size=(float)macroSliders[5].getValue();
+    advancedPanel.applyTo(parameters);
     parameters.sanitize();
 }
 
@@ -350,6 +391,7 @@ void MainComponent::syncControlsFromParameters()
     macroSliders[5].setValue(parameters.size,juce::dontSendNotification);
     snareButton.setToggleState(parameters.mode==SnairMode::snare,juce::dontSendNotification);
     clapButton.setToggleState(parameters.mode==SnairMode::clap,juce::dontSendNotification);
+    advancedPanel.setParameters(parameters);
     playbackTrimGain.store(juce::Decibels::decibelsToGain(parameters.outputTrimDb),std::memory_order_release);
 }
 
@@ -428,8 +470,7 @@ void MainComponent::exportWav()
         [safe,hit,p](const juce::FileChooser& chooser)
         {
             if(!safe || chooser.getResult()==juce::File{}) return;
-            WavExportOptions options;
-            options.outputTrimDb=p.outputTrimDb;
+            const auto options=safe->advancedPanel.exportOptions(p.outputTrimDb);
             juce::String error;
             if(WavExporter::write(chooser.getResult(),*hit,options,error))
                 safe->statusLabel.setText("Exported "+chooser.getResult().getFileName(),juce::dontSendNotification);
@@ -469,7 +510,10 @@ void MainComponent::loadPreset()
             {
                 safe->parameters=p;
                 safe->syncControlsFromParameters();
-                safe->renderCurrent("Preset load");
+                if(safe->source)
+                    safe->renderCurrent("Preset load");
+                else
+                    safe->statusLabel.setText("Preset loaded. Load a source to render it.",juce::dontSendNotification);
             }
             else safe->statusLabel.setText(error,juce::dontSendNotification);
         });
@@ -515,3 +559,79 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& out)
 }
 
 void MainComponent::releaseResources(){}
+
+
+void MainComponent::toggleAdvanced()
+{
+    advancedVisible=!advancedVisible;
+    advancedPanel.setVisible(advancedVisible);
+    for(int i=0;i<macroCount;++i)
+    {
+        macroLabels[(size_t)i].setVisible(!advancedVisible);
+        macroSliders[(size_t)i].setVisible(!advancedVisible);
+    }
+    advancedButton.setToggleState(advancedVisible,juce::dontSendNotification);
+    resized();
+}
+
+void MainComponent::saveSessionAsync(const SnairParameters& p,
+                                     const RenderedHitPtr& hit,
+                                     const juce::File& sourceFile)
+{
+    if(!hit) return;
+    sessionWorker.removeAllJobs(false,0);
+    const auto directory=SessionStore::defaultDirectory();
+    sessionWorker.addJob([directory,p,hit,sourceFile]
+    {
+        juce::String ignored;
+        SessionStore::save(directory,p,hit,sourceFile,ignored);
+    });
+}
+
+void MainComponent::restoreSession()
+{
+    const auto directory=SessionStore::defaultDirectory();
+    juce::Component::SafePointer<MainComponent> safe(this);
+    sessionWorker.addJob([safe,directory]
+    {
+        RestoredSession restored;
+        juce::String error;
+        const bool found=SessionStore::load(directory,restored,error);
+        juce::MessageManager::callAsync([safe,found,restored,error]
+        {
+            if(!safe || safe->recoverySuperseded.load(std::memory_order_acquire)) return;
+            if(!found)
+            {
+                if(error.isNotEmpty())
+                    safe->statusLabel.setText("Recovery ignored: "+error,juce::dontSendNotification);
+                return;
+            }
+
+            safe->parameters=restored.parameters;
+            safe->syncControlsFromParameters();
+            if(restored.hit)
+            {
+                safe->renderedHit.store(restored.hit,std::memory_order_release);
+                safe->sourceNameLabel.setText("Recovered previous render",juce::dontSendNotification);
+                safe->sourceDetailsLabel.setText(
+                    juce::String(restored.hit->samples.getNumChannels())+" ch • "
+                    +juce::String((int)restored.hit->sampleRate)+" Hz • recovered session",
+                    juce::dontSendNotification);
+            }
+
+            safe->refreshActionState();
+            if(restored.sourceFile.existsAsFile())
+            {
+                safe->statusLabel.setText("Recovered previous render; relinking source…",juce::dontSendNotification);
+                safe->loadSource(restored.sourceFile);
+            }
+            else if(restored.hit)
+            {
+                safe->sourceHintLabel.setText("Original source is unavailable; recovered hit remains playable and exportable.",
+                                              juce::dontSendNotification);
+                safe->statusLabel.setText("Recovered previous sound. Relink by loading its original source.",
+                                          juce::dontSendNotification);
+            }
+        });
+    });
+}
