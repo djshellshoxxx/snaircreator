@@ -162,6 +162,14 @@ public:
     if(depth==32) expect(reader->usesFloatingPointData);
    }
   }
+  beginTest("WAV export rejects non-finite rates and trims");
+  WavExportOptions invalidRate;invalidRate.sampleRate=std::numeric_limits<double>::infinity();
+  const auto rejectedRate=root.getChildFile("invalid-rate.wav");
+  expect(!WavExporter::write(rejectedRate,*hit,invalidRate,e));expect(e.isNotEmpty());expect(!rejectedRate.existsAsFile());
+  WavExportOptions invalidTrim;invalidTrim.outputTrimDb=std::numeric_limits<float>::quiet_NaN();
+  const auto rejectedTrim=root.getChildFile("invalid-trim.wav");
+  expect(!WavExporter::write(rejectedTrim,*hit,invalidTrim,e));expect(e.isNotEmpty());expect(!rejectedTrim.existsAsFile());
+
   expect(root.deleteRecursively());
  }
 };
