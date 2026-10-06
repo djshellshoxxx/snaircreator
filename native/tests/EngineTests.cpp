@@ -120,6 +120,14 @@ public:
   beginTest("corrupt replacement is rejected");
   const auto bad=root.getChildFile("bad.wav");expect(bad.replaceWithText("not audio"));
   auto invalid=SourceLoader::decode(bad,e);expect(invalid==nullptr);expect(e.isNotEmpty());
+
+  beginTest("rejects unsupported extensions even when file bytes are WAV");
+  const auto disguised=root.getChildFile("disguised.flac");
+  expect(writeTestAudio(disguised,false));
+  auto unsupported=SourceLoader::decode(disguised,e);
+  expect(unsupported==nullptr);
+  expect(e.containsIgnoreCase("WAV or AIFF"));
+
   expect(root.deleteRecursively());
  }
 };
