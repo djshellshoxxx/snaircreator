@@ -4,6 +4,10 @@
 
 This document makes the approved design's GUI implementable. The design specification remains the authority for product appearance, controls, macro meanings and editor dimensions. The editor hosts an instrument plug-in UI; the Standalone build uses the same component tree with a standalone audio/MIDI shell.
 
+## Standalone-first phase
+
+The first implementation is a standalone application. The current shell covers source selection, file metadata, Snare/Clap selection, and disabled states for actions whose DSP is not yet implemented. It does not yet meet the complete UI states below. In this phase, macro controls remain disabled until they control real render parameters; they must not change cosmetic values while implying that sound is changing. Plugin parameter IDs, MIDI activity, host automation, and DAW state are later-format requirements.
+
 ## Layout contract
 
 Use the approved design dimensions: default editor 1000 × 700, resizable minimum 760 × 520. If host constraints prevent this, preserve aspect and usability; do not introduce a second arbitrary layout. Main order:
