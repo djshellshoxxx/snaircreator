@@ -10,7 +10,7 @@ SnairCreator is a JUCE/C++ desktop application that will turn a user-provided au
 - [Standalone-first implementation plan](docs/superpowers/plans/2026-10-06-snaircreator-standalone-first.md)
 - [Approved design specification](docs/superpowers/specs/2026-10-03-snaircreator-design.md)
 - [Focused specification index](docs/superpowers/specs/README.md)
-- [Implementation plan](docs/superpowers/plans/2026-10-04-snaircreator-vst-implementation.md)
+- [Plugin-format backlog plan](docs/superpowers/plans/2026-10-04-snaircreator-vst-implementation.md)
 - [Requirement coverage tracker](docs/spec-coverage.md)
 - [Build handoff](TODO.md)
 - [Decisions](DECISIONS.md)
