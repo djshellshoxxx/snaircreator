@@ -25,6 +25,9 @@ private:
     void loadSourceMetadata(const juce::File& file);
     void setMode(bool clapSelected);
     bool hasSupportedExtension(const juce::File& file) const;
+    void showHelp();
+    void showOptions();
+    void applyTooltipSetting();
 
     juce::Label titleLabel;
     juce::Label buildLabel;
@@ -45,6 +48,9 @@ private:
     juce::TextButton resetButton { "RESET" };
     juce::TextButton randomizeButton { "RANDOMIZE" };
     juce::TextButton exportButton { "EXPORT WAV" };
+    juce::TextButton optionsButton { "OPTIONS" };
+    juce::TextButton helpButton { "HELP" };
+    juce::TextButton closeHelpButton { "CLOSE HELP" };
 
     juce::Slider sourceCharacterSlider;
     std::array<juce::Slider, macroCount> macroSliders;
@@ -52,6 +58,10 @@ private:
     std::array<juce::String, macroCount> macroNames {
         "PUNCH", "SNAP", "BODY", "TEXTURE", "DIRT", "SIZE"
     };
+
+    juce::TextEditor helpText;
+    std::unique_ptr<juce::TooltipWindow> tooltipWindow;
+    bool tooltipsEnabled = true;
 
     juce::AudioFormatManager formatManager;
     std::unique_ptr<juce::FileChooser> fileChooser;
