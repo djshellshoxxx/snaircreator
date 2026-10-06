@@ -2,6 +2,8 @@
 #include "Parameters.h"
 #include "SourceAnalyzer.h"
 #include "SnairEngine.h"
+#include "SessionStore.h"
+#include "WavExporter.h"
 
 namespace
 {
@@ -61,6 +63,50 @@ public:
  }
 };
 
+class IoTests final:public juce::UnitTest
+{
+public:
+ IoTests():juce::UnitTest("Standalone IO"){}
+ void runTest() override
+ {
+  auto s=makeSource(true);SourceAnalysis a;juce::String e;expect(SourceAnalyzer::analyze(s,a,e));
+  SnairParameters p;p.seed=777;p.mode=SnairMode::clap;
+  auto hit=SnairEngine::render(s,a,p,55,e,48000.0);expect(hit!=nullptr);
+  const auto root=juce::File::getSpecialLocation(juce::File::tempDirectory)
+      .getNonexistentChildFile("snaircreator-tests","",true);
+  expect(root.createDirectory());
+
+  beginTest("session recovery round-trips rendered hit and parameters");
+  const auto fakeSource=root.getChildFile("moved-source.wav");
+  expect(SessionStore::save(root,p,hit,fakeSource,e));expect(e.isEmpty());
+  RestoredSession restored;expect(SessionStore::load(root,restored,e));expect(e.isEmpty());
+  expect(restored.hit!=nullptr);expect(restored.parameters.mode==p.mode);expectEquals((int)restored.parameters.seed,(int)p.seed);
+  expectEquals(restored.hit->samples.getNumSamples(),hit->samples.getNumSamples());
+  expectWithinAbsoluteError(restored.hit->samples.getSample(0,100),hit->samples.getSample(0,100),1.0e-7f);
+  expectEquals(restored.sourceFile.getFullPathName(),fakeSource.getFullPathName());
+
+  beginTest("WAV export supports PCM16 PCM24 and float32 with resampling");
+  juce::AudioFormatManager formats;formats.registerBasicFormats();
+  for(const auto depth:{16,24,32})
+  {
+   WavExportOptions o;o.bitDepth=depth;o.sampleRate=44100.0;o.channels=1;o.normalize=true;
+   const auto file=root.getChildFile("export-"+juce::String(depth)+".wav");
+   expect(WavExporter::write(file,*hit,o,e));expect(e.isEmpty());
+   std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
+   expect(reader!=nullptr);
+   if(reader)
+   {
+    expectWithinAbsoluteError(reader->sampleRate,44100.0,0.01);
+    expectEquals((int)reader->numChannels,1);
+    expectEquals((int)reader->bitsPerSample,depth);
+    if(depth==32) expect(reader->usesFloatingPointData);
+   }
+  }
+  expect(root.deleteRecursively());
+ }
+};
+
 static AnalyzerTests analyzerTests;
 static EngineTests engineTests;
+static IoTests ioTests;
 }
