@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(SnairCreator VERSION 1.0.0 LANGUAGES CXX)
+project(SnairCreator VERSION 1.0.0 LANGUAGES C CXX)
 option(SNAIRCREATOR_BUILD_TESTS "Build SnairCreator unit tests" ON)
 include(FetchContent)
 FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.git GIT_TAG 9.0.3 GIT_SHALLOW TRUE)
