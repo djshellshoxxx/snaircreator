@@ -140,21 +140,27 @@ void MainComponent::paint(juce::Graphics& graphics)
 {
     graphics.fillAll(backgroundColour);
 
+    const bool compact = getHeight() < 600;
+    const int headerHeight = compact ? 44 : 52;
+    const int gap = compact ? 8 : 12;
     auto area = getLocalBounds().reduced(20);
-    area.removeFromTop(68);
-    auto sourceArea = area.removeFromTop(146);
+    area.removeFromTop(headerHeight + gap);
+
+    auto sourceArea = area.removeFromTop(compact ? 122 : 146);
     graphics.setColour(panelColour);
     graphics.fillRoundedRectangle(sourceArea.toFloat(), 10.0f);
     graphics.setColour(borderColour);
     graphics.drawRoundedRectangle(sourceArea.toFloat(), 10.0f, 1.0f);
 
-    auto modeArea = area.removeFromTop(90);
+    area.removeFromTop(gap);
+    auto modeArea = area.removeFromTop(compact ? 74 : 90);
     graphics.setColour(panelColour);
     graphics.fillRoundedRectangle(modeArea.toFloat(), 10.0f);
     graphics.setColour(borderColour);
     graphics.drawRoundedRectangle(modeArea.toFloat(), 10.0f, 1.0f);
 
-    auto controlsArea = area.removeFromTop(226);
+    area.removeFromTop(gap);
+    auto controlsArea = area.removeFromTop(compact ? 148 : 226);
     graphics.setColour(panelColour);
     graphics.fillRoundedRectangle(controlsArea.toFloat(), 10.0f);
     graphics.setColour(borderColour);
@@ -163,56 +169,68 @@ void MainComponent::paint(juce::Graphics& graphics)
 
 void MainComponent::resized()
 {
+    const bool compact = getHeight() < 600;
+    const int headerHeight = compact ? 44 : 52;
+    const int gap = compact ? 8 : 12;
     auto area = getLocalBounds().reduced(20);
 
-    auto header = area.removeFromTop(52);
+    auto header = area.removeFromTop(headerHeight);
     titleLabel.setBounds(header.removeFromLeft(280));
-    buildLabel.setBounds(header.removeFromRight(220).withY(header.getY() + 9).withHeight(24));
-    area.removeFromTop(12);
+    buildLabel.setBounds(header.removeFromRight(220).withY(header.getY() + 8).withHeight(24));
+    area.removeFromTop(gap);
 
-    auto sourceArea = area.removeFromTop(146).reduced(16);
-    sectionSourceLabel.setBounds(sourceArea.removeFromTop(20));
-    sourceArea.removeFromTop(6);
-    auto loadRow = sourceArea.removeFromBottom(36);
+    auto sourceArea = area.removeFromTop(compact ? 122 : 146)
+                           .reduced(14, compact ? 8 : 14);
+    sectionSourceLabel.setBounds(sourceArea.removeFromTop(compact ? 18 : 20));
+    sourceArea.removeFromTop(compact ? 2 : 4);
+
+    auto loadRow = sourceArea.removeFromBottom(compact ? 30 : 32);
     loadSourceButton.setBounds(loadRow.removeFromRight(150));
     sourceArea.removeFromBottom(4);
-    sourceHintLabel.setBounds(sourceArea.removeFromBottom(20));
-    sourceDetailsLabel.setBounds(sourceArea.removeFromBottom(23));
-    sourceNameLabel.setBounds(sourceArea.removeFromTop(29));
-    area.removeFromTop(12);
 
-    auto modeArea = area.removeFromTop(90).reduced(16);
-    modeLabel.setBounds(modeArea.removeFromTop(20));
-    auto modeRow = modeArea.removeFromTop(38);
+    if (compact)
+        sourceHintLabel.setBounds({});
+    else
+        sourceHintLabel.setBounds(sourceArea.removeFromBottom(18));
+
+    sourceDetailsLabel.setBounds(sourceArea.removeFromBottom(compact ? 16 : 18));
+    sourceNameLabel.setBounds(sourceArea.removeFromTop(compact ? 22 : 24));
+    area.removeFromTop(gap);
+
+    auto modeArea = area.removeFromTop(compact ? 74 : 90).reduced(14, compact ? 8 : 16);
+    modeLabel.setBounds(modeArea.removeFromTop(compact ? 16 : 20));
+    auto modeRow = modeArea.removeFromTop(compact ? 32 : 38);
     snareButton.setBounds(modeRow.removeFromLeft(132));
     modeRow.removeFromLeft(8);
     clapButton.setBounds(modeRow.removeFromLeft(132));
-    area.removeFromTop(12);
+    area.removeFromTop(gap);
 
-    auto controlsArea = area.removeFromTop(226).reduced(16);
-    characterLabel.setBounds(controlsArea.removeFromTop(20));
-    sourceCharacterSlider.setBounds(controlsArea.removeFromTop(34).removeFromLeft(420));
-    controlsArea.removeFromTop(10);
+    auto controlsArea = area.removeFromTop(compact ? 148 : 226)
+                             .reduced(14, compact ? 8 : 16);
+    characterLabel.setBounds(controlsArea.removeFromTop(compact ? 16 : 20));
+    sourceCharacterSlider.setBounds(
+        controlsArea.removeFromTop(compact ? 28 : 34).removeFromLeft(420));
+    controlsArea.removeFromTop(compact ? 4 : 10);
 
     const auto macroWidth = controlsArea.getWidth() / macroCount;
     for (int i = 0; i < macroCount; ++i)
     {
         auto column = controlsArea.removeFromLeft(macroWidth);
-        macroLabels[static_cast<size_t>(i)].setBounds(column.removeFromTop(18));
+        macroLabels[static_cast<size_t>(i)].setBounds(column.removeFromTop(compact ? 16 : 18));
         macroSliders[static_cast<size_t>(i)].setBounds(column.reduced(4, 0));
     }
 
-    area.removeFromTop(10);
-    auto actionRow = area.removeFromTop(40);
-    previewButton.setBounds(actionRow.removeFromLeft(120));
+    area.removeFromTop(gap);
+    auto actionRow = area.removeFromTop(compact ? 34 : 40);
+    previewButton.setBounds(actionRow.removeFromLeft(compact ? 108 : 120));
     actionRow.removeFromLeft(8);
-    generateButton.setBounds(actionRow.removeFromLeft(130));
+    generateButton.setBounds(actionRow.removeFromLeft(compact ? 116 : 130));
     actionRow.removeFromLeft(8);
-    randomizeButton.setBounds(actionRow.removeFromLeft(130));
-    exportButton.setBounds(actionRow.removeFromRight(130));
+    randomizeButton.setBounds(actionRow.removeFromLeft(compact ? 116 : 130));
+    exportButton.setBounds(actionRow.removeFromRight(compact ? 116 : 130));
 
-    area.removeFromTop(10);
-    statusLabel.setBounds(area.removeFromTop(28));
+    area.removeFromTop(compact ? 5 : 8);
+    statusLabel.setBounds(area.removeFromTop(compact ? 18 : 24));
 }
 
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files)
