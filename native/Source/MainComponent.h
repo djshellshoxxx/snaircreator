@@ -3,9 +3,11 @@
 #include <array>
 #include <atomic>
 #include <memory>
+#include "AdvancedPanel.h"
 #include "Parameters.h"
 #include "PresetManager.h"
 #include "RenderedHit.h"
+#include "SessionStore.h"
 #include "SourceAnalysis.h"
 #include "SourceAudio.h"
 #include "WaveformView.h"
@@ -47,6 +49,9 @@ private:
     void savePreset();
     void loadPreset();
     void refreshActionState();
+    void toggleAdvanced();
+    void restoreSession();
+    void saveSessionAsync(const SnairParameters&, const RenderedHitPtr&, const juce::File&);
 
     juce::Label titleLabel, buildLabel, sectionSourceLabel, sourceNameLabel, sourceDetailsLabel, sourceHintLabel;
     juce::Label modeLabel, characterLabel, statusLabel;
@@ -54,6 +59,8 @@ private:
     juce::TextButton loadSourceButton{"LOAD SOURCE"}, snareButton{"SNARE"}, clapButton{"CLAP"};
     juce::TextButton previewButton{"PREVIEW"}, randomizeButton{"RANDOMIZE"}, mutateButton{"MUTATE"}, undoButton{"UNDO"}, resetButton{"RESET"};
     juce::TextButton exportButton{"EXPORT WAV"}, savePresetButton{"SAVE PRESET"}, loadPresetButton{"LOAD PRESET"};
+    juce::TextButton advancedButton{"ADVANCED"};
+    AdvancedPanel advancedPanel;
     juce::Slider sourceCharacterSlider;
     std::array<juce::Slider,macroCount> macroSliders;
     std::array<juce::Label,macroCount> macroLabels;
@@ -65,11 +72,14 @@ private:
     SnairParameters parameters;
     SnairParameters undoParameters;
     bool hasUndo=false;
+    bool advancedVisible=false;
 
     juce::ThreadPool sourceWorker{1};
     juce::ThreadPool renderWorker{1};
+    juce::ThreadPool sessionWorker{1};
     std::atomic<uint64_t> sourceRequest{0};
     std::atomic<uint64_t> renderRequest{0};
+    std::atomic<bool> recoverySuperseded{false};
     std::atomic<RenderedHitPtr> renderedHit{};
     std::atomic<int> previewPosition{0};
     std::atomic<bool> previewActive{false};
