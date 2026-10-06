@@ -2,6 +2,10 @@
 int main()
 {
     juce::UnitTestRunner runner;
-    runner.runAllTests();
-    return runner.getNumResults() > 0 && runner.getNumFailures() == 0 ? 0 : 1;
+    runner.setAssertOnFailure(false);
+    runner.runAllTests(0x534E414952);
+    int failures=0;
+    for(int i=0;i<runner.getNumResults();++i)
+        if(const auto* r=runner.getResult(i)) failures += r->failures;
+    return runner.getNumResults()>0 && failures==0 ? 0 : 1;
 }
