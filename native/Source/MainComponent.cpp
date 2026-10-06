@@ -99,23 +99,31 @@ MainComponent::MainComponent()
     }
 
     configureButton(previewButton);
-    configureButton(generateButton);
+    configureButton(mutateButton);
+    configureButton(undoButton);
+    configureButton(resetButton);
     configureButton(randomizeButton);
     configureButton(exportButton);
 
     previewButton.setEnabled(false);
-    generateButton.setEnabled(false);
     randomizeButton.setEnabled(false);
+    mutateButton.setEnabled(false);
+    undoButton.setEnabled(false);
+    resetButton.setEnabled(false);
     exportButton.setEnabled(false);
 
     previewButton.setTooltip("Preview is enabled when rendering and playback are implemented.");
-    generateButton.setTooltip("Rendering is not available in this early build.");
     randomizeButton.setTooltip("Randomize is available after the render engine is implemented.");
+    mutateButton.setTooltip("Mutate is available after the render engine is implemented.");
+    undoButton.setTooltip("Undo is available after mutation history is implemented.");
+    resetButton.setTooltip("Reset is available after the render engine is implemented.");
     exportButton.setTooltip("WAV export is available after a sound has been rendered.");
 
     addAndMakeVisible(previewButton);
-    addAndMakeVisible(generateButton);
     addAndMakeVisible(randomizeButton);
+    addAndMakeVisible(mutateButton);
+    addAndMakeVisible(undoButton);
+    addAndMakeVisible(resetButton);
     addAndMakeVisible(exportButton);
 
     statusLabel.setText("App shell ready. Sound generation and playback are not connected yet.",
@@ -221,12 +229,16 @@ void MainComponent::resized()
 
     area.removeFromTop(gap);
     auto actionRow = area.removeFromTop(compact ? 34 : 40);
-    previewButton.setBounds(actionRow.removeFromLeft(compact ? 108 : 120));
-    actionRow.removeFromLeft(8);
-    generateButton.setBounds(actionRow.removeFromLeft(compact ? 116 : 130));
-    actionRow.removeFromLeft(8);
-    randomizeButton.setBounds(actionRow.removeFromLeft(compact ? 116 : 130));
-    exportButton.setBounds(actionRow.removeFromRight(compact ? 116 : 130));
+    previewButton.setBounds(actionRow.removeFromLeft(compact ? 96 : 110));
+    actionRow.removeFromLeft(6);
+    randomizeButton.setBounds(actionRow.removeFromLeft(compact ? 96 : 110));
+    actionRow.removeFromLeft(6);
+    mutateButton.setBounds(actionRow.removeFromLeft(compact ? 78 : 90));
+    actionRow.removeFromLeft(6);
+    undoButton.setBounds(actionRow.removeFromLeft(compact ? 68 : 78));
+    actionRow.removeFromLeft(6);
+    resetButton.setBounds(actionRow.removeFromLeft(compact ? 72 : 84));
+    exportButton.setBounds(actionRow.removeFromRight(compact ? 112 : 124));
 
     area.removeFromTop(compact ? 5 : 8);
     statusLabel.setBounds(area.removeFromTop(compact ? 18 : 24));
