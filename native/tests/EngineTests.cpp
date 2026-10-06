@@ -1,0 +1,62 @@
+#include <JuceHeader.h>
+#include "Parameters.h"
+#include "SourceAnalyzer.h"
+#include "SnairEngine.h"
+
+namespace
+{
+SourceAudio makeSource(bool noisy=false)
+{
+    SourceAudio s;
+    s.sampleRate=48000.0;s.channelCount=1;s.frameCount=48000;s.samples.setSize(1,(int)s.frameCount);s.samples.clear();
+    for(int i=0;i<s.samples.getNumSamples();++i)
+    {
+        const float t=(float)i/48000.0f;
+        float x=0.35f*std::sin(juce::MathConstants<float>::twoPi*180.0f*t)*std::exp(-t*6.0f);
+        if(i>=12000 && i<12300) x += (1.0f-(i-12000)/300.0f)*0.8f;
+        if(noisy) x += 0.04f*std::sin(i*1.731f);
+        s.samples.setSample(0,i,x);
+    }
+    return s;
+}
+
+class AnalyzerTests final:public juce::UnitTest
+{
+public:
+ AnalyzerTests():juce::UnitTest("SourceAnalyzer"){}
+ void runTest() override
+ {
+  beginTest("analyzes a late transient across the source");
+  auto s=makeSource();SourceAnalysis a;juce::String e;expect(SourceAnalyzer::analyze(s,a,e));expect(a.peak>0.1f);expect(a.rms>0);expect(a.fingerprint!=0);expect(a.strongestTransientSample>8000);
+  beginTest("rejects silence");
+  s.samples.clear();expect(!SourceAnalyzer::analyze(s,a,e));expect(e.isNotEmpty());
+ }
+};
+
+class EngineTests final:public juce::UnitTest
+{
+public:
+ EngineTests():juce::UnitTest("SnairEngine"){}
+ void runTest() override
+ {
+  auto s=makeSource(true);SourceAnalysis a;juce::String e;expect(SourceAnalyzer::analyze(s,a,e));
+  SnairParameters p;p.seed=42;
+  beginTest("snare render is finite and bounded");
+  auto h=SnairEngine::render(s,a,p,1,e);expect(h!=nullptr);expect(h->samples.getNumSamples()>0);expect(h->peak<=1.0001f);
+  bool finite=true;for(int ch=0;ch<h->samples.getNumChannels();++ch)for(int i=0;i<h->samples.getNumSamples();++i)finite&=std::isfinite(h->samples.getSample(ch,i));expect(finite);
+  beginTest("render is deterministic for same source state and seed");
+  auto h2=SnairEngine::render(s,a,p,2,e);expect(h2!=nullptr);expectEquals(h->samples.getNumSamples(),h2->samples.getNumSamples());
+  float diff=0;for(int i=0;i<h->samples.getNumSamples();++i)diff+=std::abs(h->samples.getSample(0,i)-h2->samples.getSample(0,i));expect(diff<1.0e-5f);
+  beginTest("seed changes output");
+  p.seed=43;auto h3=SnairEngine::render(s,a,p,3,e);float changed=0;for(int i=0;i<std::min(h->samples.getNumSamples(),h3->samples.getNumSamples());++i)changed+=std::abs(h->samples.getSample(0,i)-h3->samples.getSample(0,i));expect(changed>0.01f);
+  beginTest("clap mode generates deterministic multi-burst output");
+  p.mode=SnairMode::clap;p.seed=99;p.clapCount=6;p.clapSpreadMs=35;auto c=SnairEngine::render(s,a,p,4,e);expect(c!=nullptr);expect(c->peak<=1.0001f);
+  beginTest("randomize and mutate stay in bounds and preserve mode");
+  const auto mode=p.mode;auto r=SnairEngine::randomized(p,1234);expect(r.mode==mode);expect(r.clapCount>=2&&r.clapCount<=6);expect(r.bodyFreqHz>=70&&r.bodyFreqHz<=450);
+  auto m=SnairEngine::mutated(p,2222);expect(m.mode==mode);expect(m.sourceCharacter>=0&&m.sourceCharacter<=1);expect(m.driveDb>=0&&m.driveDb<=24);
+ }
+};
+
+static AnalyzerTests analyzerTests;
+static EngineTests engineTests;
+}
