@@ -7,7 +7,12 @@
 class SnairEngine
 {
 public:
-    static std::shared_ptr<RenderedHit> render(const SourceAudio&, const SourceAnalysis&, SnairParameters, uint64_t generationId, juce::String& error);
+    static std::shared_ptr<RenderedHit> render(const SourceAudio&,
+                                               const SourceAnalysis&,
+                                               SnairParameters,
+                                               uint64_t generationId,
+                                               juce::String& error,
+                                               double outputSampleRate = 0.0);
     static SnairParameters randomized(SnairParameters p, uint32_t variationSeed);
     static SnairParameters mutated(SnairParameters p, uint32_t variationSeed);
 };
