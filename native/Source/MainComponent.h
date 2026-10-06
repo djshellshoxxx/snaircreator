@@ -47,7 +47,9 @@ private:
     void resetParameters();
     void exportWav();
     void savePreset();
+    void savePresetAs();
     void loadPreset();
+    void applyFactoryPreset(int index);
     void refreshActionState();
     void toggleAdvanced();
     void restoreSession();
@@ -58,8 +60,9 @@ private:
     WaveformView waveform;
     juce::TextButton loadSourceButton{"LOAD SOURCE"}, snareButton{"SNARE"}, clapButton{"CLAP"};
     juce::TextButton previewButton{"PREVIEW"}, randomizeButton{"RANDOMIZE"}, mutateButton{"MUTATE"}, undoButton{"UNDO"}, resetButton{"RESET"};
-    juce::TextButton exportButton{"EXPORT WAV"}, savePresetButton{"SAVE PRESET"}, loadPresetButton{"LOAD PRESET"};
+    juce::TextButton exportButton{"EXPORT WAV"}, savePresetButton{"SAVE"}, savePresetAsButton{"SAVE AS"}, loadPresetButton{"LOAD"};
     juce::TextButton advancedButton{"ADVANCED"};
+    juce::ComboBox presetSelector;
     AdvancedPanel advancedPanel;
     juce::Slider sourceCharacterSlider;
     std::array<juce::Slider,macroCount> macroSliders;
@@ -67,6 +70,7 @@ private:
     std::array<juce::String,macroCount> macroNames{"PUNCH","SNAP","BODY","TEXTURE","DIRT","SIZE"};
 
     std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::File currentPresetFile;
     SourceAudioPtr source;
     SourceAnalysis analysis;
     SnairParameters parameters;
