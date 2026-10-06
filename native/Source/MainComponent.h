@@ -40,7 +40,9 @@ private:
     juce::TextButton snareButton { "SNARE" };
     juce::TextButton clapButton { "CLAP" };
     juce::TextButton previewButton { "PREVIEW" };
-    juce::TextButton generateButton { "GENERATE" };
+    juce::TextButton mutateButton { "MUTATE" };
+    juce::TextButton undoButton { "UNDO" };
+    juce::TextButton resetButton { "RESET" };
     juce::TextButton randomizeButton { "RANDOMIZE" };
     juce::TextButton exportButton { "EXPORT WAV" };
 
