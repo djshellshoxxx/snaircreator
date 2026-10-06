@@ -181,53 +181,60 @@ void MainComponent::configureSlider(juce::Slider& s,double a,double b,double st)
 void MainComponent::paint(juce::Graphics& g)
 {
     g.fillAll(bg);
+    const bool compact=getHeight()<620;
     auto a=getLocalBounds().reduced(20);
-    a.removeFromTop(58);
-    for(int h:{190,82,230})
+    a.removeFromTop(compact?42:58);
+    a.removeFromTop(compact?6:10);
+    const std::array<int,3> heights=compact
+        ?std::array<int,3>{130,70,170}
+        :std::array<int,3>{190,82,230};
+    for(const int height:heights)
     {
-        auto x=a.removeFromTop(h);
+        auto area=a.removeFromTop(height);
         g.setColour(panel);
-        g.fillRoundedRectangle(x.toFloat(),10);
+        g.fillRoundedRectangle(area.toFloat(),10);
         g.setColour(border);
-        g.drawRoundedRectangle(x.toFloat(),10,1);
-        a.removeFromTop(10);
+        g.drawRoundedRectangle(area.toFloat(),10,1);
+        a.removeFromTop(compact?6:10);
     }
 }
 
 void MainComponent::resized()
 {
-    auto a=getLocalBounds().reduced(20);
-    auto head=a.removeFromTop(48);
+    const bool compact=getHeight()<620;
+    const int gap=compact?6:10;
+    auto area=getLocalBounds().reduced(20);
+    auto head=area.removeFromTop(compact?42:48);
     titleLabel.setBounds(head.removeFromLeft(300));
-    tooltipsButton.setBounds(head.removeFromRight(96).reduced(2,6));
+    tooltipsButton.setBounds(head.removeFromRight(compact?96:96).reduced(2,6));
     aboutButton.setBounds(head.removeFromRight(72).reduced(2,6));
     buildLabel.setBounds(head.removeFromRight(250));
-    a.removeFromTop(10);
+    area.removeFromTop(gap);
 
-    auto src=a.removeFromTop(190).reduced(14);
-    sectionSourceLabel.setBounds(src.removeFromTop(18));
-    auto top=src.removeFromTop(30);
+    auto sourceArea=area.removeFromTop(compact?130:190).reduced(compact?10:14);
+    sectionSourceLabel.setBounds(sourceArea.removeFromTop(compact?16:18));
+    auto top=sourceArea.removeFromTop(compact?24:30);
     sourceNameLabel.setBounds(top.removeFromLeft(420));
-    loadSourceButton.setBounds(top.removeFromRight(150));
-    sourceDetailsLabel.setBounds(src.removeFromTop(20));
-    waveform.setBounds(src.removeFromTop(80));
-    sourceHintLabel.setBounds(src.removeFromTop(18));
-    a.removeFromTop(10);
+    loadSourceButton.setBounds(top.removeFromRight(compact?135:150));
+    sourceDetailsLabel.setBounds(sourceArea.removeFromTop(compact?16:20));
+    waveform.setBounds(sourceArea.removeFromTop(compact?38:80));
+    sourceHintLabel.setBounds(sourceArea.removeFromTop(compact?16:18));
+    area.removeFromTop(gap);
 
-    auto mode=a.removeFromTop(82).reduced(14);
-    modeLabel.setBounds(mode.removeFromTop(18));
-    auto mr=mode.removeFromTop(36);
-    snareButton.setBounds(mr.removeFromLeft(130));
-    mr.removeFromLeft(8);
-    clapButton.setBounds(mr.removeFromLeft(130));
-    advancedButton.setBounds(mr.removeFromRight(110));
-    mr.removeFromRight(8);
-    characterLabel.setBounds(mr.removeFromLeft(150));
-    sourceCharacterSlider.setBounds(mr.removeFromLeft(std::min(300,mr.getWidth())));
-    a.removeFromTop(10);
+    auto mode=area.removeFromTop(compact?70:82).reduced(compact?10:14);
+    modeLabel.setBounds(mode.removeFromTop(compact?16:18));
+    auto modeRow=mode.removeFromTop(compact?32:36);
+    snareButton.setBounds(modeRow.removeFromLeft(130));
+    modeRow.removeFromLeft(8);
+    clapButton.setBounds(modeRow.removeFromLeft(130));
+    advancedButton.setBounds(modeRow.removeFromRight(110));
+    modeRow.removeFromRight(8);
+    characterLabel.setBounds(modeRow.removeFromLeft(150));
+    sourceCharacterSlider.setBounds(modeRow.removeFromLeft(std::min(300,modeRow.getWidth())));
+    area.removeFromTop(gap);
 
-    auto ctr=a.removeFromTop(230).reduced(14);
-    auto editorArea=ctr.removeFromTop(143);
+    auto controls=area.removeFromTop(compact?170:230).reduced(compact?10:14);
+    auto editorArea=controls.removeFromTop(compact?106:143);
     if(advancedVisible)
     {
         advancedPanel.setBounds(editorArea);
@@ -240,38 +247,38 @@ void MainComponent::resized()
     else
     {
         advancedPanel.setBounds({});
-        auto labels=editorArea.removeFromTop(18);
+        auto labels=editorArea.removeFromTop(compact?16:18);
         auto knobs=editorArea;
-        int w=knobs.getWidth()/macroCount;
+        int width=knobs.getWidth()/macroCount;
         for(int i=0;i<macroCount;++i)
         {
-            macroLabels[(size_t)i].setBounds(labels.removeFromLeft(w));
-            macroSliders[(size_t)i].setBounds(knobs.removeFromLeft(w).reduced(4));
+            macroLabels[(size_t)i].setBounds(labels.removeFromLeft(width));
+            macroSliders[(size_t)i].setBounds(knobs.removeFromLeft(width).reduced(4));
         }
     }
 
-    auto actions=ctr.removeFromTop(36);
-    for(auto* b:{&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton})
+    auto actions=controls.removeFromTop(compact?32:36);
+    const int actionWidth=compact?100:105;
+    for(auto* button:{&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton})
     {
-        b->setBounds(actions.removeFromLeft(105));
+        button->setBounds(actions.removeFromLeft(actionWidth));
         actions.removeFromLeft(6);
     }
 
-    a.removeFromTop(10);
-    auto bottom=a.removeFromTop(38);
-    exportButton.setBounds(bottom.removeFromRight(120));
+    area.removeFromTop(gap);
+    auto bottom=area.removeFromTop(compact?32:38);
+    exportButton.setBounds(bottom.removeFromRight(compact?110:120));
     bottom.removeFromRight(5);
-    savePresetAsButton.setBounds(bottom.removeFromRight(86));
+    savePresetAsButton.setBounds(bottom.removeFromRight(compact?78:86));
     bottom.removeFromRight(5);
-    savePresetButton.setBounds(bottom.removeFromRight(72));
+    savePresetButton.setBounds(bottom.removeFromRight(compact?64:72));
     bottom.removeFromRight(5);
-    loadPresetButton.setBounds(bottom.removeFromRight(72));
+    loadPresetButton.setBounds(bottom.removeFromRight(compact?64:72));
     bottom.removeFromRight(5);
-    presetSelector.setBounds(bottom.removeFromRight(170));
+    presetSelector.setBounds(bottom.removeFromRight(compact?145:170));
     bottom.removeFromRight(8);
     statusLabel.setBounds(bottom);
 }
-
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& f)
 {
     return f.size()==1;
