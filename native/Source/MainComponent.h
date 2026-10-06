@@ -51,6 +51,7 @@ private:
     void loadPreset();
     void applyFactoryPreset(int index);
     void showAbout();
+    void toggleTooltips();
     void refreshActionState();
     void toggleAdvanced();
     void restoreSession();
@@ -62,10 +63,11 @@ private:
     juce::TextButton loadSourceButton{"LOAD SOURCE"}, snareButton{"SNARE"}, clapButton{"CLAP"};
     juce::TextButton previewButton{"PREVIEW"}, randomizeButton{"RANDOMIZE"}, mutateButton{"MUTATE"}, undoButton{"UNDO"}, resetButton{"RESET"};
     juce::TextButton exportButton{"EXPORT WAV"}, savePresetButton{"SAVE"}, savePresetAsButton{"SAVE AS"}, loadPresetButton{"LOAD"};
-    juce::TextButton advancedButton{"ADVANCED"}, aboutButton{"ABOUT"};
+    juce::TextButton advancedButton{"ADVANCED"}, aboutButton{"HELP"}, tooltipsButton{"TIPS ON"};
     juce::ComboBox presetSelector;
     AdvancedPanel advancedPanel;
-    juce::TooltipWindow tooltipWindow{nullptr,700};
+    std::unique_ptr<juce::TooltipWindow> tooltipWindow;
+    bool tooltipsEnabled=true;
     juce::Slider sourceCharacterSlider;
     std::array<juce::Slider,macroCount> macroSliders;
     std::array<juce::Label,macroCount> macroLabels;
