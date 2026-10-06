@@ -7,8 +7,14 @@ FetchContent_MakeAvailable(JUCE)
 
 set(SNAIR_CORE
     native/Source/AdvancedPanel.cpp
+    native/Source/LayerExtraction.cpp
+    native/Source/SnareRenderer.cpp
+    native/Source/ClapRenderer.cpp
     native/Source/SourceLoader.cpp
     native/Source/SourceAnalyzer.cpp
+    native/Source/LayerExtraction.cpp
+    native/Source/SnareRenderer.cpp
+    native/Source/ClapRenderer.cpp
     native/Source/SnairEngine.cpp
     native/Source/WavExporter.cpp
     native/Source/PresetManager.cpp
