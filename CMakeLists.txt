@@ -13,7 +13,8 @@ set(SNAIR_CORE
     native/Source/PresetManager.cpp
     native/Source/WaveformView.cpp
 )
-juce_add_gui_app(SnairCreator PRODUCT_NAME "SnairCreator" COMPANY_NAME "Circuit Drift Labs" VERSION "${PROJECT_VERSION}")
+juce_add_gui_app(SnairCreator PRODUCT_NAME "SnairCreator" COMPANY_NAME "Circuit Drift Labs" BUNDLE_ID "com.circuitdriftlabs.snaircreator" VERSION "${PROJECT_VERSION}")
+juce_generate_juce_header(SnairCreator)
 target_sources(SnairCreator PRIVATE native/Source/Main.cpp native/Source/MainComponent.cpp ${SNAIR_CORE})
 target_include_directories(SnairCreator PRIVATE native/Source)
 target_compile_features(SnairCreator PRIVATE cxx_std_20)
@@ -23,6 +24,7 @@ target_link_libraries(SnairCreator PRIVATE juce::juce_audio_utils juce::juce_dsp
 if(SNAIRCREATOR_BUILD_TESTS)
   enable_testing()
   juce_add_console_app(SnairCreatorTests PRODUCT_NAME "SnairCreatorTests")
+  juce_generate_juce_header(SnairCreatorTests)
   target_sources(SnairCreatorTests PRIVATE native/tests/TestMain.cpp native/tests/EngineTests.cpp native/Source/SourceAnalyzer.cpp native/Source/SnairEngine.cpp)
   target_include_directories(SnairCreatorTests PRIVATE native/Source)
   target_compile_features(SnairCreatorTests PRIVATE cxx_std_20)
