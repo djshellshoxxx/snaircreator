@@ -88,7 +88,7 @@ private:
     std::atomic<uint64_t> sourceRequest{0};
     std::atomic<uint64_t> renderRequest{0};
     std::atomic<bool> recoverySuperseded{false};
-    std::atomic<RenderedHitPtr> renderedHit{};
+    RenderedHitPtr renderedHit{};
     std::atomic<int> previewPosition{0};
     std::atomic<bool> previewActive{false};
     std::atomic<double> playbackSampleRate{48000.0};
