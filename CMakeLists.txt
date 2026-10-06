@@ -7,6 +7,7 @@ FetchContent_MakeAvailable(JUCE)
 
 set(SNAIR_CORE
     native/Source/AdvancedPanel.cpp
+    native/Source/FactoryPresets.cpp
     native/Source/LayerExtraction.cpp
     native/Source/SnareRenderer.cpp
     native/Source/ClapRenderer.cpp
