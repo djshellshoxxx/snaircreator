@@ -28,6 +28,7 @@ MainComponent::MainComponent()
     buildLabel.setFont(juce::Font(11.0f,juce::Font::bold));
     buildLabel.setColour(juce::Label::textColourId,accent);
     addAndMakeVisible(buildLabel);
+    tooltipWindow=std::make_unique<juce::TooltipWindow>(nullptr,700);
 
     sectionSourceLabel.setText("SOURCE AUDIO",juce::dontSendNotification);
     sectionSourceLabel.setColour(juce::Label::textColourId,accent);
@@ -46,7 +47,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(sourceHintLabel);
     addAndMakeVisible(waveform);
 
-    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&savePresetAsButton,&loadPresetButton,&advancedButton})
+    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&savePresetAsButton,&loadPresetButton,&advancedButton,&aboutButton,&tooltipsButton})
     {
         configureButton(*b);
         addAndMakeVisible(*b);
@@ -63,6 +64,24 @@ MainComponent::MainComponent()
     savePresetAsButton.onClick=[this]{savePresetAs();};
     loadPresetButton.onClick=[this]{loadPreset();};
     advancedButton.onClick=[this]{toggleAdvanced();};
+    aboutButton.onClick=[this]{showAbout();};
+    tooltipsButton.onClick=[this]{toggleTooltips();};
+
+    loadSourceButton.setTooltip("Load or drop one WAV or AIFF source.");
+    snareButton.setTooltip("Render the loaded source toward a snare character.");
+    clapButton.setTooltip("Render the loaded source toward a clap character.");
+    previewButton.setTooltip("Audition the exact active render.");
+    randomizeButton.setTooltip("Generate a new bounded variation.");
+    mutateButton.setTooltip("Make a smaller variation from the current settings.");
+    undoButton.setTooltip("Restore the settings from before the last variation.");
+    resetButton.setTooltip("Restore default settings for the selected mode.");
+    exportButton.setTooltip("Export the active render as a WAV file.");
+    savePresetButton.setTooltip("Save settings to the current user preset.");
+    savePresetAsButton.setTooltip("Save settings to a new JSON preset.");
+    loadPresetButton.setTooltip("Load a user preset from a JSON file.");
+    advancedButton.setTooltip("Show detailed synthesis and WAV export controls.");
+    aboutButton.setTooltip("Open the SnairCreator help guide.");
+    tooltipsButton.setTooltip("Turn contextual tooltips on or off.");
 
     presetSelector.setTextWhenNothingSelected("FACTORY PRESETS");
     int presetId=1;
@@ -180,6 +199,8 @@ void MainComponent::resized()
     auto a=getLocalBounds().reduced(20);
     auto head=a.removeFromTop(48);
     titleLabel.setBounds(head.removeFromLeft(300));
+    tooltipsButton.setBounds(head.removeFromRight(96).reduced(2,6));
+    aboutButton.setBounds(head.removeFromRight(72).reduced(2,6));
     buildLabel.setBounds(head.removeFromRight(250));
     a.removeFromTop(10);
 
@@ -626,6 +647,36 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& out)
 
 void MainComponent::releaseResources(){}
 
+
+void MainComponent::showAbout()
+{
+    const juce::String help =
+        "SNAIRCREATOR HELP\\n\\n"
+        "GETTING STARTED\\nLoad one WAV or AIFF source with Load Source or drag it into the window. "
+        "Mono and stereo files up to 10 minutes are supported. A rejected file leaves the previous source and render available.\\n\\n"
+        "SOURCE AND ANALYSIS\\nThe waveform and transient marker summarize the loaded audio. Source Character blends recognizable source material with generated reinforcement.\\n\\n"
+        "SOUND CONTROLS\\nSnare and Clap choose the render character. Punch, Snap, Body, Texture, Dirt, and Size shape the sound. "
+        "Advanced controls set body frequency, attack, noise, tail, pitch, tone, drive, width, clap pattern, and output trim.\\n\\n"
+        "ACTIONS\\nPreview plays the active render. Randomize creates a new bounded variation; Mutate makes a smaller change; Undo restores the prior settings; Reset restores defaults. "
+        "Factory and user presets save reusable parameter recipes.\\n\\n"
+        "EXPORT\\nExport WAV writes the active render. Advanced export options select PCM 16-bit, PCM 24-bit, or float 32-bit, sample rate, channel count, normalization, and output trim.\\n\\n"
+        "RECOVERY\\nThe latest render and settings are recovered at startup. If the source file has moved, load it again to continue editing; the recovered WAV remains playable and exportable.\\n\\n"
+        "TOOLTIPS\\nUse TIPS ON / TIPS OFF in the title bar to enable or disable contextual hover help.";
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
+                                           "SnairCreator Help",
+                                           help,
+                                           "Close");
+}
+
+void MainComponent::toggleTooltips()
+{
+    tooltipsEnabled=!tooltipsEnabled;
+    if(tooltipsEnabled)
+        tooltipWindow=std::make_unique<juce::TooltipWindow>(nullptr,700);
+    else
+        tooltipWindow.reset();
+    tooltipsButton.setButtonText(tooltipsEnabled?"TIPS ON":"TIPS OFF");
+}
 
 void MainComponent::toggleAdvanced()
 {
