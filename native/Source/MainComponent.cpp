@@ -1,329 +1,100 @@
 #include "MainComponent.h"
+#include "SourceAnalyzer.h"
+#include "SourceLoader.h"
+#include "SnairEngine.h"
+#include "WavExporter.h"
 
-namespace
-{
-const juce::Colour backgroundColour { 15, 18, 23 };
-const juce::Colour panelColour { 24, 29, 37 };
-const juce::Colour borderColour { 48, 58, 70 };
-const juce::Colour accentColour { 47, 202, 224 };
-const juce::Colour mutedColour { 145, 157, 171 };
+namespace {
+const juce::Colour bg{15,18,23}, panel{24,29,37}, border{48,58,70}, accent{47,202,224}, muted{145,157,171};
 }
 
 MainComponent::MainComponent()
 {
-    formatManager.registerBasicFormats();
+    titleLabel.setText("SnairCreator",juce::dontSendNotification); titleLabel.setFont(juce::Font(27.0f,juce::Font::bold)); titleLabel.setColour(juce::Label::textColourId,juce::Colours::white); addAndMakeVisible(titleLabel);
+    buildLabel.setText("STANDALONE  /  COMPLETE ENGINE",juce::dontSendNotification); buildLabel.setFont(juce::Font(11.0f,juce::Font::bold)); buildLabel.setColour(juce::Label::textColourId,accent); addAndMakeVisible(buildLabel);
+    sectionSourceLabel.setText("SOURCE AUDIO",juce::dontSendNotification); sectionSourceLabel.setColour(juce::Label::textColourId,accent); addAndMakeVisible(sectionSourceLabel);
+    sourceNameLabel.setText("No source loaded",juce::dontSendNotification); sourceNameLabel.setColour(juce::Label::textColourId,juce::Colours::white); addAndMakeVisible(sourceNameLabel);
+    sourceDetailsLabel.setText("WAV or AIFF • one file at a time",juce::dontSendNotification); sourceDetailsLabel.setColour(juce::Label::textColourId,muted); addAndMakeVisible(sourceDetailsLabel);
+    sourceHintLabel.setText("Drop a WAV or AIFF here",juce::dontSendNotification); sourceHintLabel.setColour(juce::Label::textColourId,muted); addAndMakeVisible(sourceHintLabel);
+    addAndMakeVisible(waveform);
 
-    titleLabel.setText("SnairCreator", juce::dontSendNotification);
-    titleLabel.setFont(juce::Font(27.0f, juce::Font::bold));
-    titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(titleLabel);
+    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&loadPresetButton}){configureButton(*b);addAndMakeVisible(*b);}
+    loadSourceButton.onClick=[this]{chooseSource();}; previewButton.onClick=[this]{startPreview();}; randomizeButton.onClick=[this]{randomize();}; mutateButton.onClick=[this]{mutate();}; undoButton.onClick=[this]{undo();}; resetButton.onClick=[this]{resetParameters();}; exportButton.onClick=[this]{exportWav();}; savePresetButton.onClick=[this]{savePreset();}; loadPresetButton.onClick=[this]{loadPreset();};
 
-    buildLabel.setText("STANDALONE  /  EARLY BUILD", juce::dontSendNotification);
-    buildLabel.setFont(juce::Font(11.0f, juce::Font::bold));
-    buildLabel.setColour(juce::Label::textColourId, accentColour);
-    addAndMakeVisible(buildLabel);
+    snareButton.setRadioGroupId(1); clapButton.setRadioGroupId(1); snareButton.setClickingTogglesState(true); clapButton.setClickingTogglesState(true);
+    snareButton.onClick=[this]{setMode(false);}; clapButton.onClick=[this]{setMode(true);};
 
-    sectionSourceLabel.setText("SOURCE AUDIO", juce::dontSendNotification);
-    sectionSourceLabel.setFont(juce::Font(12.0f, juce::Font::bold));
-    sectionSourceLabel.setColour(juce::Label::textColourId, accentColour);
-    addAndMakeVisible(sectionSourceLabel);
+    modeLabel.setText("OUTPUT CHARACTER",juce::dontSendNotification); modeLabel.setColour(juce::Label::textColourId,accent); addAndMakeVisible(modeLabel);
+    characterLabel.setText("SOURCE CHARACTER",juce::dontSendNotification); characterLabel.setColour(juce::Label::textColourId,muted); addAndMakeVisible(characterLabel);
+    configureSlider(sourceCharacterSlider,0,1,0.01); addAndMakeVisible(sourceCharacterSlider);
+    sourceCharacterSlider.onDragEnd=[this]{syncParametersFromControls();renderCurrent("Source Character");};
+    for(int i=0;i<macroCount;++i){ auto& l=macroLabels[(size_t)i]; l.setText(macroNames[(size_t)i],juce::dontSendNotification);l.setJustificationType(juce::Justification::centred);l.setColour(juce::Label::textColourId,muted);addAndMakeVisible(l); auto& s=macroSliders[(size_t)i];configureSlider(s,0,1,0.01);s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);s.onDragEnd=[this]{syncParametersFromControls();renderCurrent("Parameter change");};addAndMakeVisible(s);}
 
-    sourceNameLabel.setText("No source loaded", juce::dontSendNotification);
-    sourceNameLabel.setFont(juce::Font(17.0f, juce::Font::bold));
-    sourceNameLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    addAndMakeVisible(sourceNameLabel);
-
-    sourceDetailsLabel.setText("WAV or AIFF  •  One file at a time", juce::dontSendNotification);
-    sourceDetailsLabel.setFont(juce::Font(12.0f));
-    sourceDetailsLabel.setColour(juce::Label::textColourId, mutedColour);
-    addAndMakeVisible(sourceDetailsLabel);
-
-    sourceHintLabel.setText("Drop an audio file here to inspect it", juce::dontSendNotification);
-    sourceHintLabel.setFont(juce::Font(12.0f));
-    sourceHintLabel.setColour(juce::Label::textColourId, mutedColour);
-    addAndMakeVisible(sourceHintLabel);
-
-    configureButton(loadSourceButton);
-    loadSourceButton.setColour(juce::TextButton::buttonColourId, accentColour.withAlpha(0.16f));
-    loadSourceButton.setColour(juce::TextButton::textColourOffId, accentColour);
-    loadSourceButton.onClick = [this] { chooseSource(); };
-    addAndMakeVisible(loadSourceButton);
-
-    modeLabel.setText("OUTPUT CHARACTER", juce::dontSendNotification);
-    modeLabel.setFont(juce::Font(12.0f, juce::Font::bold));
-    modeLabel.setColour(juce::Label::textColourId, accentColour);
-    addAndMakeVisible(modeLabel);
-
-    configureButton(snareButton);
-    configureButton(clapButton);
-    snareButton.setRadioGroupId(1);
-    clapButton.setRadioGroupId(1);
-    snareButton.setClickingTogglesState(true);
-    clapButton.setClickingTogglesState(true);
-    snareButton.setToggleState(true, juce::dontSendNotification);
-    snareButton.onClick = [this] { setMode(false); };
-    clapButton.onClick = [this] { setMode(true); };
-    addAndMakeVisible(snareButton);
-    addAndMakeVisible(clapButton);
-
-    characterLabel.setText("SOURCE CHARACTER", juce::dontSendNotification);
-    characterLabel.setFont(juce::Font(11.0f, juce::Font::bold));
-    characterLabel.setColour(juce::Label::textColourId, mutedColour);
-    addAndMakeVisible(characterLabel);
-
-    sourceCharacterSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    sourceCharacterSlider.setRange(0.0, 1.0, 0.01);
-    sourceCharacterSlider.setValue(0.5);
-    sourceCharacterSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 54, 22);
-    sourceCharacterSlider.setEnabled(false);
-    sourceCharacterSlider.setTooltip("Available after the render engine is connected.");
-    addAndMakeVisible(sourceCharacterSlider);
-
-    for (int i = 0; i < macroCount; ++i)
-    {
-        auto& label = macroLabels[static_cast<size_t>(i)];
-        label.setText(macroNames[static_cast<size_t>(i)], juce::dontSendNotification);
-        label.setFont(juce::Font(11.0f, juce::Font::bold));
-        label.setJustificationType(juce::Justification::centred);
-        label.setColour(juce::Label::textColourId, mutedColour);
-        addAndMakeVisible(label);
-
-        auto& slider = macroSliders[static_cast<size_t>(i)];
-        slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-        slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 54, 20);
-        slider.setRange(0.0, 1.0, 0.01);
-        slider.setValue(0.5);
-        slider.setEnabled(false);
-        slider.setTooltip("Available after the render engine is connected.");
-        addAndMakeVisible(slider);
-    }
-
-    configureButton(previewButton);
-    configureButton(mutateButton);
-    configureButton(undoButton);
-    configureButton(resetButton);
-    configureButton(randomizeButton);
-    configureButton(exportButton);
-
-    previewButton.setEnabled(false);
-    randomizeButton.setEnabled(false);
-    mutateButton.setEnabled(false);
-    undoButton.setEnabled(false);
-    resetButton.setEnabled(false);
-    exportButton.setEnabled(false);
-
-    previewButton.setTooltip("Preview is enabled when rendering and playback are implemented.");
-    randomizeButton.setTooltip("Randomize is available after the render engine is implemented.");
-    mutateButton.setTooltip("Mutate is available after the render engine is implemented.");
-    undoButton.setTooltip("Undo is available after mutation history is implemented.");
-    resetButton.setTooltip("Reset is available after the render engine is implemented.");
-    exportButton.setTooltip("WAV export is available after a sound has been rendered.");
-
-    addAndMakeVisible(previewButton);
-    addAndMakeVisible(randomizeButton);
-    addAndMakeVisible(mutateButton);
-    addAndMakeVisible(undoButton);
-    addAndMakeVisible(resetButton);
-    addAndMakeVisible(exportButton);
-
-    statusLabel.setText("App shell ready. Sound generation and playback are not connected yet.",
-                        juce::dontSendNotification);
-    statusLabel.setFont(juce::Font(12.0f));
-    statusLabel.setColour(juce::Label::textColourId, mutedColour);
-    addAndMakeVisible(statusLabel);
-
-    setSize(1000, 700);
+    statusLabel.setText("Load a source to generate a snare or clap.",juce::dontSendNotification);statusLabel.setColour(juce::Label::textColourId,muted);addAndMakeVisible(statusLabel);
+    syncControlsFromParameters();
+    previewButton.setEnabled(false);randomizeButton.setEnabled(false);mutateButton.setEnabled(false);undoButton.setEnabled(false);resetButton.setEnabled(false);exportButton.setEnabled(false);savePresetButton.setEnabled(false);
+    setAudioChannels(0,2);
+    setSize(1000,700);
 }
 
-void MainComponent::configureButton(juce::TextButton& button)
-{
-    button.setColour(juce::TextButton::buttonColourId, panelColour);
-    button.setColour(juce::TextButton::buttonOnColourId, accentColour.withAlpha(0.20f));
-    button.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    button.setColour(juce::TextButton::textColourOnId, accentColour);
-}
+MainComponent::~MainComponent(){shutdownAudio();}
+void MainComponent::configureButton(juce::TextButton& b){b.setColour(juce::TextButton::buttonColourId,panel);b.setColour(juce::TextButton::buttonOnColourId,accent.withAlpha(0.2f));b.setColour(juce::TextButton::textColourOffId,juce::Colours::white);}
+void MainComponent::configureSlider(juce::Slider& s,double a,double b,double st){s.setRange(a,b,st);s.setTextBoxStyle(juce::Slider::TextBoxBelow,false,58,20);s.setColour(juce::Slider::textBoxTextColourId,juce::Colours::white);}
 
-void MainComponent::paint(juce::Graphics& graphics)
-{
-    graphics.fillAll(backgroundColour);
-
-    const bool compact = getHeight() < 600;
-    const int headerHeight = compact ? 44 : 52;
-    const int gap = compact ? 8 : 12;
-    auto area = getLocalBounds().reduced(20);
-    area.removeFromTop(headerHeight + gap);
-
-    auto sourceArea = area.removeFromTop(compact ? 122 : 146);
-    graphics.setColour(panelColour);
-    graphics.fillRoundedRectangle(sourceArea.toFloat(), 10.0f);
-    graphics.setColour(borderColour);
-    graphics.drawRoundedRectangle(sourceArea.toFloat(), 10.0f, 1.0f);
-
-    area.removeFromTop(gap);
-    auto modeArea = area.removeFromTop(compact ? 74 : 90);
-    graphics.setColour(panelColour);
-    graphics.fillRoundedRectangle(modeArea.toFloat(), 10.0f);
-    graphics.setColour(borderColour);
-    graphics.drawRoundedRectangle(modeArea.toFloat(), 10.0f, 1.0f);
-
-    area.removeFromTop(gap);
-    auto controlsArea = area.removeFromTop(compact ? 148 : 226);
-    graphics.setColour(panelColour);
-    graphics.fillRoundedRectangle(controlsArea.toFloat(), 10.0f);
-    graphics.setColour(borderColour);
-    graphics.drawRoundedRectangle(controlsArea.toFloat(), 10.0f, 1.0f);
-}
-
+void MainComponent::paint(juce::Graphics& g){g.fillAll(bg);auto a=getLocalBounds().reduced(20);a.removeFromTop(58);for(int h:{190,82,230}){auto x=a.removeFromTop(h);g.setColour(panel);g.fillRoundedRectangle(x.toFloat(),10);g.setColour(border);g.drawRoundedRectangle(x.toFloat(),10,1);a.removeFromTop(10);}}
 void MainComponent::resized()
 {
-    const bool compact = getHeight() < 600;
-    const int headerHeight = compact ? 44 : 52;
-    const int gap = compact ? 8 : 12;
-    auto area = getLocalBounds().reduced(20);
-
-    auto header = area.removeFromTop(headerHeight);
-    titleLabel.setBounds(header.removeFromLeft(280));
-    buildLabel.setBounds(header.removeFromRight(220).withY(header.getY() + 8).withHeight(24));
-    area.removeFromTop(gap);
-
-    auto sourceArea = area.removeFromTop(compact ? 122 : 146)
-                           .reduced(14, compact ? 8 : 12);
-    sectionSourceLabel.setBounds(sourceArea.removeFromTop(compact ? 18 : 20));
-    sourceArea.removeFromTop(compact ? 2 : 4);
-
-    auto loadRow = sourceArea.removeFromBottom(compact ? 30 : 32);
-    loadSourceButton.setBounds(loadRow.removeFromRight(150));
-    sourceArea.removeFromBottom(4);
-
-    if (compact)
-        sourceHintLabel.setBounds({});
-    else
-        sourceHintLabel.setBounds(sourceArea.removeFromBottom(18));
-
-    sourceDetailsLabel.setBounds(sourceArea.removeFromBottom(compact ? 16 : 18));
-    sourceNameLabel.setBounds(sourceArea.removeFromTop(compact ? 22 : 24));
-    area.removeFromTop(gap);
-
-    auto modeArea = area.removeFromTop(compact ? 74 : 90).reduced(14, compact ? 8 : 16);
-    modeLabel.setBounds(modeArea.removeFromTop(compact ? 16 : 20));
-    auto modeRow = modeArea.removeFromTop(compact ? 32 : 38);
-    snareButton.setBounds(modeRow.removeFromLeft(132));
-    modeRow.removeFromLeft(8);
-    clapButton.setBounds(modeRow.removeFromLeft(132));
-    area.removeFromTop(gap);
-
-    auto controlsArea = area.removeFromTop(compact ? 148 : 226)
-                             .reduced(14, compact ? 8 : 16);
-    characterLabel.setBounds(controlsArea.removeFromTop(compact ? 16 : 20));
-    sourceCharacterSlider.setBounds(
-        controlsArea.removeFromTop(compact ? 28 : 34).removeFromLeft(420));
-    controlsArea.removeFromTop(compact ? 4 : 10);
-
-    const auto macroWidth = controlsArea.getWidth() / macroCount;
-    for (int i = 0; i < macroCount; ++i)
-    {
-        auto column = controlsArea.removeFromLeft(macroWidth);
-        macroLabels[static_cast<size_t>(i)].setBounds(column.removeFromTop(compact ? 16 : 18));
-        macroSliders[static_cast<size_t>(i)].setBounds(column.reduced(4, 0));
-    }
-
-    area.removeFromTop(gap);
-    auto actionRow = area.removeFromTop(compact ? 34 : 40);
-    previewButton.setBounds(actionRow.removeFromLeft(compact ? 96 : 110));
-    actionRow.removeFromLeft(6);
-    randomizeButton.setBounds(actionRow.removeFromLeft(compact ? 96 : 110));
-    actionRow.removeFromLeft(6);
-    mutateButton.setBounds(actionRow.removeFromLeft(compact ? 78 : 90));
-    actionRow.removeFromLeft(6);
-    undoButton.setBounds(actionRow.removeFromLeft(compact ? 68 : 78));
-    actionRow.removeFromLeft(6);
-    resetButton.setBounds(actionRow.removeFromLeft(compact ? 72 : 84));
-    exportButton.setBounds(actionRow.removeFromRight(compact ? 112 : 124));
-
-    area.removeFromTop(compact ? 5 : 8);
-    statusLabel.setBounds(area.removeFromTop(compact ? 18 : 24));
+    auto a=getLocalBounds().reduced(20);auto head=a.removeFromTop(48);titleLabel.setBounds(head.removeFromLeft(300));buildLabel.setBounds(head.removeFromRight(250));a.removeFromTop(10);
+    auto src=a.removeFromTop(190).reduced(14);sectionSourceLabel.setBounds(src.removeFromTop(18));auto top=src.removeFromTop(30);sourceNameLabel.setBounds(top.removeFromLeft(420));loadSourceButton.setBounds(top.removeFromRight(150));sourceDetailsLabel.setBounds(src.removeFromTop(20));waveform.setBounds(src.removeFromTop(80));sourceHintLabel.setBounds(src.removeFromTop(18));a.removeFromTop(10);
+    auto mode=a.removeFromTop(82).reduced(14);modeLabel.setBounds(mode.removeFromTop(18));auto mr=mode.removeFromTop(36);snareButton.setBounds(mr.removeFromLeft(130));mr.removeFromLeft(8);clapButton.setBounds(mr.removeFromLeft(130));characterLabel.setBounds(mr.removeFromLeft(150));sourceCharacterSlider.setBounds(mr.removeFromLeft(300));a.removeFromTop(10);
+    auto ctr=a.removeFromTop(230).reduced(14);auto labels=ctr.removeFromTop(18);auto knobs=ctr.removeFromTop(125);int w=knobs.getWidth()/macroCount;for(int i=0;i<macroCount;++i){auto lc=labels.removeFromLeft(w);macroLabels[(size_t)i].setBounds(lc);auto kc=knobs.removeFromLeft(w);macroSliders[(size_t)i].setBounds(kc.reduced(4));}
+    auto actions=ctr.removeFromTop(36);for(auto* b:{&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton}){b->setBounds(actions.removeFromLeft(105));actions.removeFromLeft(6);}a.removeFromTop(10);
+    auto bottom=a.removeFromTop(38);exportButton.setBounds(bottom.removeFromRight(130));bottom.removeFromRight(6);savePresetButton.setBounds(bottom.removeFromRight(120));bottom.removeFromRight(6);loadPresetButton.setBounds(bottom.removeFromRight(120));statusLabel.setBounds(bottom);
 }
 
-bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files)
+bool MainComponent::isInterestedInFileDrag(const juce::StringArray& f){return f.size()==1;}
+void MainComponent::filesDropped(const juce::StringArray& f,int,int){if(f.size()==1)loadSource(juce::File(f[0]));}
+void MainComponent::chooseSource(){fileChooser=std::make_unique<juce::FileChooser>("Choose source",juce::File{},"*.wav;*.aif;*.aiff");juce::Component::SafePointer<MainComponent> s(this);fileChooser->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[s](const juce::FileChooser& c){if(s&&c.getResult().existsAsFile())s->loadSource(c.getResult());});}
+
+void MainComponent::loadSource(const juce::File& f)
 {
-    return !files.isEmpty();
+    statusLabel.setText("Decoding and analyzing source…",juce::dontSendNotification);
+    juce::String err;auto candidate=SourceLoader::decode(f,err);if(!candidate){statusLabel.setText(err,juce::dontSendNotification);return;}
+    SourceAnalysis a;if(!SourceAnalyzer::analyze(*candidate,a,err)){statusLabel.setText(err,juce::dontSendNotification);return;}
+    source=candidate;analysis=a;sourceNameLabel.setText(f.getFileName(),juce::dontSendNotification);
+    sourceDetailsLabel.setText(juce::String(candidate->channelCount)+" ch • "+juce::String((int)candidate->sampleRate)+" Hz • "+juce::String(candidate->durationSeconds(),2)+" s • crest "+juce::String(a.crest,2),juce::dontSendNotification);
+    sourceHintLabel.setText("Strongest transient "+juce::String(a.strongestTransientSample/a.sampleRate,3)+" s • centroid "+juce::String((int)a.spectralCentroidHz)+" Hz",juce::dontSendNotification);
+    waveform.setPeaks(candidate->waveformPeaks);renderCurrent("Initial render");
+    randomizeButton.setEnabled(true);mutateButton.setEnabled(true);resetButton.setEnabled(true);savePresetButton.setEnabled(true);
 }
 
-void MainComponent::filesDropped(const juce::StringArray& files, int, int)
+void MainComponent::renderCurrent(const juce::String& reason)
 {
-    if (files.size() != 1)
-    {
-        statusLabel.setText("Drop one WAV or AIFF file at a time.", juce::dontSendNotification);
-        return;
-    }
-
-    loadSourceMetadata(juce::File(files[0]));
+    if(!source)return;syncParametersFromControls();statusLabel.setText("Rendering "+reason+"…",juce::dontSendNotification);juce::String err;auto h=SnairEngine::render(*source,analysis,parameters,++generation,err);
+    if(!h){statusLabel.setText("Render failed: "+err,juce::dontSendNotification);return;}renderedHit=h;previewButton.setEnabled(true);exportButton.setEnabled(true);statusLabel.setText((parameters.mode==SnairMode::clap?"Clap":"Snare")+juce::String(" ready • peak ")+juce::String(h->peak,3),juce::dontSendNotification);
 }
 
-void MainComponent::chooseSource()
+void MainComponent::syncParametersFromControls(){parameters.sourceCharacter=(float)sourceCharacterSlider.getValue();parameters.punch=(float)macroSliders[0].getValue();parameters.snap=(float)macroSliders[1].getValue();parameters.body=(float)macroSliders[2].getValue();parameters.texture=(float)macroSliders[3].getValue();parameters.dirt=(float)macroSliders[4].getValue();parameters.size=(float)macroSliders[5].getValue();parameters.sanitize();}
+void MainComponent::syncControlsFromParameters(){sourceCharacterSlider.setValue(parameters.sourceCharacter,juce::dontSendNotification);macroSliders[0].setValue(parameters.punch,juce::dontSendNotification);macroSliders[1].setValue(parameters.snap,juce::dontSendNotification);macroSliders[2].setValue(parameters.body,juce::dontSendNotification);macroSliders[3].setValue(parameters.texture,juce::dontSendNotification);macroSliders[4].setValue(parameters.dirt,juce::dontSendNotification);macroSliders[5].setValue(parameters.size,juce::dontSendNotification);snareButton.setToggleState(parameters.mode==SnairMode::snare,juce::dontSendNotification);clapButton.setToggleState(parameters.mode==SnairMode::clap,juce::dontSendNotification);}
+void MainComponent::setMode(bool clap){parameters.mode=clap?SnairMode::clap:SnairMode::snare;syncControlsFromParameters();renderCurrent("Mode change");}
+void MainComponent::startPreview(){if(renderedHit){previewPosition=0;previewActive=true;}}
+void MainComponent::randomize(){undoParameters=parameters;hasUndo=true;parameters=SnairEngine::randomized(parameters,++variationCounter);syncControlsFromParameters();undoButton.setEnabled(true);renderCurrent("Randomize");}
+void MainComponent::mutate(){undoParameters=parameters;hasUndo=true;parameters=SnairEngine::mutated(parameters,++variationCounter);syncControlsFromParameters();undoButton.setEnabled(true);renderCurrent("Mutate");}
+void MainComponent::undo(){if(!hasUndo)return;parameters=undoParameters;hasUndo=false;undoButton.setEnabled(false);syncControlsFromParameters();renderCurrent("Undo");}
+void MainComponent::resetParameters(){auto m=parameters.mode;parameters={};parameters.mode=m;syncControlsFromParameters();renderCurrent("Reset");}
+
+void MainComponent::exportWav()
 {
-    fileChooser = std::make_unique<juce::FileChooser>(
-        "Choose a WAV or AIFF source",
-        juce::File{},
-        "*.wav;*.aif;*.aiff");
-
-    const juce::Component::SafePointer<MainComponent> safeThis(this);
-    fileChooser->launchAsync(
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [safeThis](const juce::FileChooser& chooser)
-        {
-            const auto selected = chooser.getResult();
-            if (safeThis == nullptr)
-                return;
-
-            safeThis->fileChooser.reset();
-            if (selected.existsAsFile())
-                safeThis->loadSourceMetadata(selected);
-        });
+    if(!renderedHit)return;fileChooser=std::make_unique<juce::FileChooser>("Export WAV",juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("SnairCreator_"+juce::String(parameters.mode==SnairMode::clap?"Clap":"Snare")+"_"+juce::String(parameters.seed)+".wav"),"*.wav");
+    auto hit=renderedHit;auto p=parameters;juce::Component::SafePointer<MainComponent> s(this);fileChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::warnAboutOverwriting,[s,hit,p](const juce::FileChooser& c){if(!s||c.getResult()==juce::File{})return;WavExportOptions o;o.outputTrimDb=p.outputTrimDb;juce::String e;if(WavExporter::write(c.getResult(),*hit,o,e))s->statusLabel.setText("Exported "+c.getResult().getFileName(),juce::dontSendNotification);else s->statusLabel.setText(e,juce::dontSendNotification);});
 }
+void MainComponent::savePreset(){fileChooser=std::make_unique<juce::FileChooser>("Save preset",juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("SnairCreator.preset.json"),"*.json");auto p=parameters;juce::Component::SafePointer<MainComponent>s(this);fileChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::warnAboutOverwriting,[s,p](const juce::FileChooser& c){if(!s||c.getResult()==juce::File{})return;juce::String e;s->statusLabel.setText(PresetManager::save(c.getResult(),p,e)?"Preset saved":e,juce::dontSendNotification);});}
+void MainComponent::loadPreset(){fileChooser=std::make_unique<juce::FileChooser>("Load preset",juce::File{},"*.json");juce::Component::SafePointer<MainComponent>s(this);fileChooser->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[s](const juce::FileChooser& c){if(!s||!c.getResult().existsAsFile())return;juce::String e;auto p=s->parameters;if(PresetManager::load(c.getResult(),p,e)){s->parameters=p;s->syncControlsFromParameters();s->renderCurrent("Preset load");}else s->statusLabel.setText(e,juce::dontSendNotification);});}
 
-bool MainComponent::hasSupportedExtension(const juce::File& file) const
+void MainComponent::prepareToPlay(int,double){}
+void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& out)
 {
-    const auto extension = file.getFileExtension().toLowerCase();
-    return extension == ".wav" || extension == ".aif" || extension == ".aiff";
+    out.clearActiveBufferRegion();auto h=renderedHit;if(!h||!previewActive)return;int pos=previewPosition.load();const int remain=h->samples.getNumSamples()-pos;if(remain<=0){previewActive=false;return;}const int n=std::min(out.numSamples,remain);const float trim=juce::Decibels::decibelsToGain(parameters.outputTrimDb);
+    for(int ch=0;ch<out.buffer->getNumChannels();++ch){int srcCh=std::min(ch,h->samples.getNumChannels()-1);out.buffer->copyFrom(ch,out.startSample,h->samples,srcCh,pos,n);out.buffer->applyGain(ch,out.startSample,n,trim);}previewPosition=pos+n;if(pos+n>=h->samples.getNumSamples())previewActive=false;
 }
-
-void MainComponent::loadSourceMetadata(const juce::File& file)
-{
-    if (!hasSupportedExtension(file))
-    {
-        statusLabel.setText("Unsupported file. Choose a WAV or AIFF source.",
-                            juce::dontSendNotification);
-        return;
-    }
-
-    std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
-    if (reader == nullptr || reader->lengthInSamples <= 0 || reader->sampleRate <= 0.0)
-    {
-        statusLabel.setText("Could not read that audio file. The previous source is unchanged.",
-                            juce::dontSendNotification);
-        return;
-    }
-
-    currentSource = file;
-    const auto durationSeconds = static_cast<double>(reader->lengthInSamples) / reader->sampleRate;
-    const auto details = juce::String(reader->numChannels) + " ch  •  "
-                       + juce::String(static_cast<int>(reader->sampleRate)) + " Hz  •  "
-                       + juce::String(durationSeconds, 2) + " s";
-
-    sourceNameLabel.setText(file.getFileName(), juce::dontSendNotification);
-    sourceDetailsLabel.setText(details, juce::dontSendNotification);
-    sourceHintLabel.setText("File header validated. Full decode and waveform are next.",
-                            juce::dontSendNotification);
-    statusLabel.setText("Source selected. Generation and playback are not available in this build.",
-                        juce::dontSendNotification);
-}
-
-void MainComponent::setMode(bool clapSelected)
-{
-    clapMode = clapSelected;
-    snareButton.setToggleState(!clapMode, juce::dontSendNotification);
-    clapButton.setToggleState(clapMode, juce::dontSendNotification);
-    statusLabel.setText(clapMode ? "Clap mode selected." : "Snare mode selected.",
-                        juce::dontSendNotification);
-}
+void MainComponent::releaseResources(){}
