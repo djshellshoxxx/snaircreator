@@ -20,3 +20,8 @@ SnairCreator is a JUCE/C++ desktop application that will turn a user-provided au
 ## Focused specifications
 
 GUI, source ingestion, render engine, standalone behavior, presets/export, and verification/build/release contracts are listed in the [specification index](docs/superpowers/specs/README.md). Plugin formats follow after the standalone workflow is stable.
+
+
+## Required shared plug-in standard
+
+This project follows the [Circuit Drift Labs Shared Audio Plugin Standard](docs/standards/CDL_PLUGIN_BASELINE.md). It is required for the plug-in target; standalone-only requirements apply only when a standalone target is included. The product-specific specification supplements the shared standard and records the applicable profiles, compliance status, and any exceptions.
