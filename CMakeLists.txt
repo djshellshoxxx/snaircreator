@@ -12,7 +12,9 @@ set(SNAIR_CORE
     native/Source/SnareRenderer.cpp
     native/Source/ClapRenderer.cpp
     native/Source/SourceLoader.cpp
+    native/Source/SourceLoader.cpp
     native/Source/SourceAnalyzer.cpp
+    native/Source/FactoryPresets.cpp
     native/Source/LayerExtraction.cpp
     native/Source/SnareRenderer.cpp
     native/Source/ClapRenderer.cpp
