@@ -6,6 +6,7 @@ FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.
 FetchContent_MakeAvailable(JUCE)
 
 set(SNAIR_CORE
+    native/Source/AdvancedPanel.cpp
     native/Source/SourceLoader.cpp
     native/Source/SourceAnalyzer.cpp
     native/Source/SnairEngine.cpp
