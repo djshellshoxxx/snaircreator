@@ -49,8 +49,12 @@ public:
   float diff=0;for(int i=0;i<h->samples.getNumSamples();++i)diff+=std::abs(h->samples.getSample(0,i)-h2->samples.getSample(0,i));expect(diff<1.0e-5f);
   beginTest("seed changes output");
   p.seed=43;auto h3=SnairEngine::render(s,a,p,3,e);float changed=0;for(int i=0;i<std::min(h->samples.getNumSamples(),h3->samples.getNumSamples());++i)changed+=std::abs(h->samples.getSample(0,i)-h3->samples.getSample(0,i));expect(changed>0.01f);
+  beginTest("device-rate rendering preserves duration at requested sample rate");
+  p.mode=SnairMode::snare;p.seed=42;auto rateHit=SnairEngine::render(s,a,p,4,e,44100.0);expect(rateHit!=nullptr);expectWithinAbsoluteError(rateHit->sampleRate,44100.0,0.01);expect(rateHit->samples.getNumSamples()>1000);
+  beginTest("tone parameter materially changes the render");
+  p.tone=-1.0f;auto dark=SnairEngine::render(s,a,p,5,e);p.tone=1.0f;auto bright=SnairEngine::render(s,a,p,6,e);float toneDiff=0;for(int i=0;i<std::min(dark->samples.getNumSamples(),bright->samples.getNumSamples());++i)toneDiff+=std::abs(dark->samples.getSample(0,i)-bright->samples.getSample(0,i));expect(toneDiff>0.01f);
   beginTest("clap mode generates deterministic multi-burst output");
-  p.mode=SnairMode::clap;p.seed=99;p.clapCount=6;p.clapSpreadMs=35;auto c=SnairEngine::render(s,a,p,4,e);expect(c!=nullptr);expect(c->peak<=1.0001f);
+  p.mode=SnairMode::clap;p.seed=99;p.clapCount=6;p.clapSpreadMs=35;auto c=SnairEngine::render(s,a,p,7,e);expect(c!=nullptr);expect(c->peak<=1.0001f);
   beginTest("randomize and mutate stay in bounds and preserve mode");
   const auto mode=p.mode;auto r=SnairEngine::randomized(p,1234);expect(r.mode==mode);expect(r.clapCount>=2&&r.clapCount<=6);expect(r.bodyFreqHz>=70&&r.bodyFreqHz<=450);
   auto m=SnairEngine::mutated(p,2222);expect(m.mode==mode);expect(m.sourceCharacter>=0&&m.sourceCharacter<=1);expect(m.driveDb>=0&&m.driveDb<=24);
