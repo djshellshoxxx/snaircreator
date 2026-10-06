@@ -23,6 +23,56 @@ MainComponent::MainComponent()
     buildLabel.setColour(juce::Label::textColourId, accentColour);
     addAndMakeVisible(buildLabel);
 
+    configureButton(optionsButton);
+    configureButton(helpButton);
+    optionsButton.setTooltip("Open interface options, including the global tooltip switch.");
+    helpButton.setTooltip("Open the complete SnairCreator help section.");
+    optionsButton.onClick = [this] { showOptions(); };
+    helpButton.onClick = [this] { showHelp(); };
+    addAndMakeVisible(optionsButton);
+    addAndMakeVisible(helpButton);
+
+    helpText.setMultiLine(true);
+    helpText.setReadOnly(true);
+    helpText.setScrollbarsShown(true);
+    helpText.setCaretVisible(false);
+    helpText.setColour(juce::TextEditor::backgroundColourId, panelColour);
+    helpText.setColour(juce::TextEditor::textColourId, juce::Colours::white);
+    helpText.setColour(juce::TextEditor::outlineColourId, accentColour);
+    helpText.setText(
+        "SNAIRCREATOR HELP\n\n"
+        "GETTING STARTED\n"
+        "Load or drag one WAV/AIFF source into the window. Choose Snare or Clap as the target character. "
+        "The source header is validated immediately.\n\n"
+        "SOURCE CHARACTER\n"
+        "This control determines how strongly the generated result keeps recognizable traits from the source. "
+        "It becomes active when the render engine is available.\n\n"
+        "MACROS\n"
+        "Punch controls transient impact, Snap controls the upper transient, Body controls weight, Texture changes "
+        "surface/noise detail, Dirt adds roughness, and Size changes perceived scale/decay. Disabled controls indicate "
+        "a feature that is not connected in this early build.\n\n"
+        "ACTIONS\n"
+        "Preview auditions the generated sound. Randomize creates a fresh variation. Mutate makes a smaller change. "
+        "Undo restores the previous mutation. Reset restores defaults. Export WAV writes the rendered result.\n\n"
+        "FILES\n"
+        "Supported input formats in this build are WAV, AIF and AIFF. Drop exactly one file at a time. An invalid or "
+        "unreadable source leaves the previous valid source unchanged.\n\n"
+        "TOOLTIPS\n"
+        "Hover a control for contextual help. OPTIONS > Show tooltips enables or disables all hover tips.\n\n"
+        "TROUBLESHOOTING\n"
+        "If a control is disabled, the corresponding render/playback feature is not yet connected. If a file is rejected, "
+        "confirm it is a valid WAV/AIFF file with readable audio data.\n");
+    helpText.setVisible(false);
+    addChildComponent(helpText);
+
+    configureButton(closeHelpButton);
+    closeHelpButton.setTooltip("Close this help section.");
+    closeHelpButton.onClick = [this] { helpText.setVisible(false); closeHelpButton.setVisible(false); };
+    closeHelpButton.setVisible(false);
+    addChildComponent(closeHelpButton);
+
+    applyTooltipSetting();
+
     sectionSourceLabel.setText("SOURCE AUDIO", juce::dontSendNotification);
     sectionSourceLabel.setFont(juce::Font(12.0f, juce::Font::bold));
     sectionSourceLabel.setColour(juce::Label::textColourId, accentColour);
@@ -46,6 +96,7 @@ MainComponent::MainComponent()
     configureButton(loadSourceButton);
     loadSourceButton.setColour(juce::TextButton::buttonColourId, accentColour.withAlpha(0.16f));
     loadSourceButton.setColour(juce::TextButton::textColourOffId, accentColour);
+    loadSourceButton.setTooltip("Choose a WAV or AIFF source file. You can also drag one file into the window.");
     loadSourceButton.onClick = [this] { chooseSource(); };
     addAndMakeVisible(loadSourceButton);
 
@@ -61,6 +112,8 @@ MainComponent::MainComponent()
     snareButton.setClickingTogglesState(true);
     clapButton.setClickingTogglesState(true);
     snareButton.setToggleState(true, juce::dontSendNotification);
+    snareButton.setTooltip("Generate toward a snare-drum character.");
+    clapButton.setTooltip("Generate toward a clap character.");
     snareButton.onClick = [this] { setMode(false); };
     clapButton.onClick = [this] { setMode(true); };
     addAndMakeVisible(snareButton);
@@ -135,6 +188,44 @@ MainComponent::MainComponent()
     setSize(1000, 700);
 }
 
+void MainComponent::applyTooltipSetting()
+{
+    if (tooltipsEnabled)
+    {
+        if (tooltipWindow == nullptr)
+            tooltipWindow = std::make_unique<juce::TooltipWindow>(this, 600);
+    }
+    else
+    {
+        tooltipWindow.reset();
+    }
+}
+
+void MainComponent::showOptions()
+{
+    juce::PopupMenu menu;
+    menu.addSectionHeader("Interface");
+    menu.addItem(1, "Show tooltips", true, tooltipsEnabled);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&optionsButton),
+                       [this](int result)
+                       {
+                           if (result == 1)
+                           {
+                               tooltipsEnabled = !tooltipsEnabled;
+                               applyTooltipSetting();
+                           }
+                       });
+}
+
+void MainComponent::showHelp()
+{
+    helpText.setVisible(true);
+    closeHelpButton.setVisible(true);
+    resized();
+    helpText.toFront(false);
+    closeHelpButton.toFront(false);
+}
+
 void MainComponent::configureButton(juce::TextButton& button)
 {
     button.setColour(juce::TextButton::buttonColourId, panelColour);
@@ -182,8 +273,12 @@ void MainComponent::resized()
     auto area = getLocalBounds().reduced(20);
 
     auto header = area.removeFromTop(headerHeight);
-    titleLabel.setBounds(header.removeFromLeft(280));
-    buildLabel.setBounds(header.removeFromRight(220).withY(header.getY() + 8).withHeight(24));
+    titleLabel.setBounds(header.removeFromLeft(250));
+    helpButton.setBounds(header.removeFromRight(70).reduced(0, 6));
+    header.removeFromRight(6);
+    optionsButton.setBounds(header.removeFromRight(84).reduced(0, 6));
+    header.removeFromRight(8);
+    buildLabel.setBounds(header.withY(header.getY() + 8).withHeight(24));
     area.removeFromTop(gap);
 
     auto sourceArea = area.removeFromTop(compact ? 122 : 146)
@@ -242,6 +337,16 @@ void MainComponent::resized()
 
     area.removeFromTop(compact ? 5 : 8);
     statusLabel.setBounds(area.removeFromTop(compact ? 18 : 24));
+
+    if (helpText.isVisible())
+    {
+        auto helpArea = getLocalBounds().reduced(55, 45);
+        auto closeRow = helpArea.removeFromBottom(40);
+        closeHelpButton.setBounds(closeRow.withSizeKeepingCentre(120, 30));
+        helpText.setBounds(helpArea);
+        helpText.toFront(false);
+        closeHelpButton.toFront(false);
+    }
 }
 
 bool MainComponent::isInterestedInFileDrag(const juce::StringArray& files)
