@@ -25,15 +25,15 @@ bool WavExporter::write(const juce::File& file,const RenderedHit& hit,const WavE
         if(peak>1.0e-7f) data.applyGain(0.98f/peak);
     }
 
-    if(outRate!=hit.sampleRate)
+    if(std::abs(outRate-hit.sampleRate)>0.5)
     {
-        const double ratio=outRate/hit.sampleRate;
-        const int newN=std::max(1,static_cast<int>(std::ceil(data.getNumSamples()*ratio)));
+        const double speedRatio=hit.sampleRate/outRate;
+        const int newN=std::max(1,static_cast<int>(std::ceil(data.getNumSamples()/speedRatio)));
         juce::AudioBuffer<float> resampled(outChannels,newN);
         for(int ch=0;ch<outChannels;++ch)
         {
-            juce::LagrangeInterpolator interp;
-            interp.process(1.0/ratio,data.getReadPointer(ch),resampled.getWritePointer(ch),newN);
+            juce::WindowedSincInterpolator interp;
+            interp.process(speedRatio,data.getReadPointer(ch),resampled.getWritePointer(ch),newN,data.getNumSamples(),0);
         }
         data=std::move(resampled);
     }
@@ -44,7 +44,7 @@ bool WavExporter::write(const juce::File& file,const RenderedHit& hit,const WavE
 
     juce::WavAudioFormat wav;
     std::unique_ptr<juce::AudioFormatWriter> writer(wav.createWriterFor(stream.release(),outRate,static_cast<unsigned int>(outChannels),bitDepth,{},0));
-    if(!writer){ error="Could not create the WAV encoder."; return false; }
+    if(!writer){ error="Could not create the WAV encoder for the selected format."; return false; }
     if(!writer->writeFromAudioSampleBuffer(data,0,data.getNumSamples())){ error="WAV encoding failed."; return false; }
     return true;
 }
