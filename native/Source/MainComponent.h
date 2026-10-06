@@ -1,62 +1,68 @@
 #pragma once
-
 #include <JuceHeader.h>
 #include <array>
+#include <atomic>
 #include <memory>
+#include "Parameters.h"
+#include "PresetManager.h"
+#include "RenderedHit.h"
+#include "SourceAnalysis.h"
+#include "SourceAudio.h"
+#include "WaveformView.h"
 
-class MainComponent final : public juce::Component,
+class MainComponent final : public juce::AudioAppComponent,
                             public juce::FileDragAndDropTarget
 {
 public:
     MainComponent();
-    ~MainComponent() override = default;
-
-    void paint(juce::Graphics& graphics) override;
+    ~MainComponent() override;
+    void paint(juce::Graphics&) override;
     void resized() override;
-
-    bool isInterestedInFileDrag(const juce::StringArray& files) override;
-    void filesDropped(const juce::StringArray& files, int x, int y) override;
+    bool isInterestedInFileDrag(const juce::StringArray&) override;
+    void filesDropped(const juce::StringArray&, int, int) override;
+    void prepareToPlay(int, double) override;
+    void getNextAudioBlock(const juce::AudioSourceChannelInfo&) override;
+    void releaseResources() override;
 
 private:
-    static constexpr int macroCount = 6;
-
-    void configureButton(juce::TextButton& button);
+    static constexpr int macroCount=6;
+    void configureButton(juce::TextButton&);
+    void configureSlider(juce::Slider&,double,double,double);
     void chooseSource();
-    void loadSourceMetadata(const juce::File& file);
-    void setMode(bool clapSelected);
-    bool hasSupportedExtension(const juce::File& file) const;
+    void loadSource(const juce::File&);
+    void renderCurrent(const juce::String& reason);
+    void syncControlsFromParameters();
+    void syncParametersFromControls();
+    void setMode(bool clap);
+    void startPreview();
+    void randomize();
+    void mutate();
+    void undo();
+    void resetParameters();
+    void exportWav();
+    void savePreset();
+    void loadPreset();
 
-    juce::Label titleLabel;
-    juce::Label buildLabel;
-    juce::Label sectionSourceLabel;
-    juce::Label sourceNameLabel;
-    juce::Label sourceDetailsLabel;
-    juce::Label sourceHintLabel;
-    juce::Label modeLabel;
-    juce::Label characterLabel;
-    juce::Label statusLabel;
-
-    juce::TextButton loadSourceButton { "LOAD SOURCE" };
-    juce::TextButton snareButton { "SNARE" };
-    juce::TextButton clapButton { "CLAP" };
-    juce::TextButton previewButton { "PREVIEW" };
-    juce::TextButton mutateButton { "MUTATE" };
-    juce::TextButton undoButton { "UNDO" };
-    juce::TextButton resetButton { "RESET" };
-    juce::TextButton randomizeButton { "RANDOMIZE" };
-    juce::TextButton exportButton { "EXPORT WAV" };
-
+    juce::Label titleLabel, buildLabel, sectionSourceLabel, sourceNameLabel, sourceDetailsLabel, sourceHintLabel;
+    juce::Label modeLabel, characterLabel, statusLabel;
+    WaveformView waveform;
+    juce::TextButton loadSourceButton{"LOAD SOURCE"}, snareButton{"SNARE"}, clapButton{"CLAP"};
+    juce::TextButton previewButton{"PREVIEW"}, randomizeButton{"RANDOMIZE"}, mutateButton{"MUTATE"}, undoButton{"UNDO"}, resetButton{"RESET"};
+    juce::TextButton exportButton{"EXPORT WAV"}, savePresetButton{"SAVE PRESET"}, loadPresetButton{"LOAD PRESET"};
     juce::Slider sourceCharacterSlider;
-    std::array<juce::Slider, macroCount> macroSliders;
-    std::array<juce::Label, macroCount> macroLabels;
-    std::array<juce::String, macroCount> macroNames {
-        "PUNCH", "SNAP", "BODY", "TEXTURE", "DIRT", "SIZE"
-    };
-
-    juce::AudioFormatManager formatManager;
+    std::array<juce::Slider,macroCount> macroSliders;
+    std::array<juce::Label,macroCount> macroLabels;
+    std::array<juce::String,macroCount> macroNames{"PUNCH","SNAP","BODY","TEXTURE","DIRT","SIZE"};
     std::unique_ptr<juce::FileChooser> fileChooser;
-    juce::File currentSource;
-    bool clapMode = false;
-
+    SourceAudioPtr source;
+    SourceAnalysis analysis;
+    SnairParameters parameters;
+    SnairParameters undoParameters;
+    bool hasUndo=false;
+    RenderedHitPtr renderedHit;
+    std::atomic<int> previewPosition{0};
+    std::atomic<bool> previewActive{false};
+    uint64_t generation=0;
+    uint32_t variationCounter=100;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
