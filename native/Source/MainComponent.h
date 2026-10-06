@@ -11,11 +11,13 @@
 #include "WaveformView.h"
 
 class MainComponent final : public juce::AudioAppComponent,
-                            public juce::FileDragAndDropTarget
+                            public juce::FileDragAndDropTarget,
+                            private juce::AsyncUpdater
 {
 public:
     MainComponent();
     ~MainComponent() override;
+
     void paint(juce::Graphics&) override;
     void resized() override;
     bool isInterestedInFileDrag(const juce::StringArray&) override;
@@ -26,6 +28,8 @@ public:
 
 private:
     static constexpr int macroCount=6;
+
+    void handleAsyncUpdate() override;
     void configureButton(juce::TextButton&);
     void configureSlider(juce::Slider&,double,double,double);
     void chooseSource();
@@ -42,6 +46,7 @@ private:
     void exportWav();
     void savePreset();
     void loadPreset();
+    void refreshActionState();
 
     juce::Label titleLabel, buildLabel, sectionSourceLabel, sourceNameLabel, sourceDetailsLabel, sourceHintLabel;
     juce::Label modeLabel, characterLabel, statusLabel;
@@ -53,16 +58,25 @@ private:
     std::array<juce::Slider,macroCount> macroSliders;
     std::array<juce::Label,macroCount> macroLabels;
     std::array<juce::String,macroCount> macroNames{"PUNCH","SNAP","BODY","TEXTURE","DIRT","SIZE"};
+
     std::unique_ptr<juce::FileChooser> fileChooser;
     SourceAudioPtr source;
     SourceAnalysis analysis;
     SnairParameters parameters;
     SnairParameters undoParameters;
     bool hasUndo=false;
-    RenderedHitPtr renderedHit;
+
+    juce::ThreadPool sourceWorker{1};
+    juce::ThreadPool renderWorker{1};
+    std::atomic<uint64_t> sourceRequest{0};
+    std::atomic<uint64_t> renderRequest{0};
+    std::atomic<RenderedHitPtr> renderedHit{};
     std::atomic<int> previewPosition{0};
     std::atomic<bool> previewActive{false};
+    std::atomic<double> playbackSampleRate{48000.0};
+    std::atomic<float> playbackTrimGain{1.0f};
     uint64_t generation=0;
     uint32_t variationCounter=100;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
