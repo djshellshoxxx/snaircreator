@@ -1,9 +1,9 @@
 # SnairCreator Design Specification
 
-Status: Approved design, implementation not yet started  
+Status: Approved design; standalone-first implementation in progress  
 Product: SnairCreator  
-Primary target: Native audio plugin and standalone application  
-Primary formats: VST3 and CLAP; AU on macOS  
+First target: Native standalone desktop application  
+Later formats: VST3 and CLAP; AU on macOS after standalone stability  
 Framework: JUCE/C++
 
 ## 1. Product definition
@@ -12,7 +12,7 @@ SnairCreator is a percussion sound-design instrument that transforms an arbitrar
 
 The source can be nearly any decodable audio material: a drum hit, vocal fragment, field recording, machine noise, impact, guitar, vinyl noise, household sound, music excerpt, or other audio. The engine analyzes the source, extracts useful transient, tonal, and noisy components, then reconstructs those components into a controlled percussion hit.
 
-The product is primarily a native plugin for use inside a DAW. A generated sound can be triggered by MIDI immediately and can also be exported as a WAV file without leaving the plugin.
+The first delivery is a native standalone desktop app for loading a source, generating a Snare or Clap, previewing it, and exporting WAV. MIDI and DAW session recall belong to later plugin-format work; they must not delay the standalone workflow.
 
 The primary user-facing modes are deliberately simple:
 
@@ -37,17 +37,17 @@ A successful result should satisfy all of the following:
 
 ## 3. Core user workflow
 
-1. Insert SnairCreator as an instrument plugin.
+1. Launch the SnairCreator standalone app.
 2. Drag an audio file into the source area or choose Load Source.
 3. The plugin decodes and analyzes the source.
 4. Choose **Snare** or **Clap**.
 5. The engine generates an initial percussion hit automatically.
 6. Shape the result with macro controls.
 7. Open Advanced controls when deeper editing is required.
-8. Trigger the sound from MIDI or use the on-screen Preview button.
+8. Use the on-screen Preview button to audition the generated hit. MIDI triggering is deferred to plugin-format work.
 9. Use Randomize or Mutate to generate variations.
 10. Export the current sound as WAV when desired.
-11. Save the DAW project or an internal preset.
+11. Save an internal preset. DAW project recall is deferred to plugin-format work.
 
 The workflow must remain usable without opening the Advanced panel.
 
