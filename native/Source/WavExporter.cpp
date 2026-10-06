@@ -1,4 +1,5 @@
 #include "WavExporter.h"
+#include <cmath>
 #include <memory>
 
 bool WavExporter::write(const juce::File& file,const RenderedHit& hit,const WavExportOptions& opt,juce::String& error)
