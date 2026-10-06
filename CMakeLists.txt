@@ -11,6 +11,7 @@ set(SNAIR_CORE
     native/Source/SnairEngine.cpp
     native/Source/WavExporter.cpp
     native/Source/PresetManager.cpp
+    native/Source/SessionStore.cpp
     native/Source/WaveformView.cpp
 )
 juce_add_gui_app(SnairCreator PRODUCT_NAME "SnairCreator" COMPANY_NAME "Circuit Drift Labs" BUNDLE_ID "com.circuitdriftlabs.snaircreator" VERSION "${PROJECT_VERSION}")
@@ -25,7 +26,15 @@ if(SNAIRCREATOR_BUILD_TESTS)
   enable_testing()
   juce_add_console_app(SnairCreatorTests PRODUCT_NAME "SnairCreatorTests")
   juce_generate_juce_header(SnairCreatorTests)
-  target_sources(SnairCreatorTests PRIVATE native/tests/TestMain.cpp native/tests/EngineTests.cpp native/Source/SourceAnalyzer.cpp native/Source/SnairEngine.cpp)
+  target_sources(SnairCreatorTests PRIVATE
+    native/tests/TestMain.cpp
+    native/tests/EngineTests.cpp
+    native/Source/SourceAnalyzer.cpp
+    native/Source/SnairEngine.cpp
+    native/Source/WavExporter.cpp
+    native/Source/PresetManager.cpp
+    native/Source/SessionStore.cpp
+  )
   target_include_directories(SnairCreatorTests PRIVATE native/Source)
   target_compile_features(SnairCreatorTests PRIVATE cxx_std_20)
   target_compile_definitions(SnairCreatorTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
