@@ -9,6 +9,23 @@ bool WavExporter::write(const juce::File& file,const RenderedHit& hit,const WavE
         error="There is no rendered hit to export.";
         return false;
     }
+    if(hit.samples.getNumChannels()<1 || hit.samples.getNumChannels()>2
+       || !std::isfinite(hit.sampleRate) || hit.sampleRate<8000.0 || hit.sampleRate>192000.0)
+    {
+        error="The active render has invalid audio metadata.";
+        return false;
+    }
+    if(opt.sampleRate!=0.0
+       && (!std::isfinite(opt.sampleRate) || opt.sampleRate<8000.0 || opt.sampleRate>192000.0))
+    {
+        error="Choose a finite export sample rate between 8 kHz and 192 kHz.";
+        return false;
+    }
+    if(!std::isfinite(opt.outputTrimDb) || opt.outputTrimDb < -24.0f || opt.outputTrimDb > 12.0f)
+    {
+        error="Output trim must be between -24 dB and +12 dB.";
+        return false;
+    }
 
     const double outRate=opt.sampleRate>0.0?opt.sampleRate:hit.sampleRate;
     const int outChannels=std::clamp(opt.channels,1,2);
