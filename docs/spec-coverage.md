@@ -1,6 +1,6 @@
 # SnairCreator Specification Coverage
 
-Repository is design/planning-only; all implementation rows begin pending. Do not mark an item verified without implementation location and concrete evidence. Numerical tests do not replace listening or real-host validation.
+Standalone-first implementation is underway. Do not mark an item verified without implementation location and concrete evidence. Numerical tests do not replace listening or platform validation. Do not mark an item verified without implementation location and concrete evidence. Numerical tests do not replace listening or real-host validation.
 
 | ID | Source | Acceptance / verification | Implementation location | Evidence | Status |
 |---|---|---|---|---|---|
@@ -17,7 +17,7 @@ Repository is design/planning-only; all implementation rows begin pending. Do no
 | GUI-002 | gui-implementation.md, UI states | Empty/loading/analyzing/ready/rendering/error/missing-source states match contract | UI components | Not implemented | pending |
 | GUI-003 | gui-implementation.md, Interaction wiring | Mode/macros/advanced controls update stable parameter state | editor/controller | Not implemented | pending |
 | GUI-004 | gui-implementation.md, Accessibility | Labels, focus, numeric entry, scaling and contrast verified | UI | Not implemented | pending |
-| HOST-001 | plugin-host-state.md, Targets and formats | VST3/CLAP/Standalone Windows; VST3/CLAP/AU/Standalone macOS | target build | Not implemented | pending |
+| APP-001 | standalone-first.md, Application shell | Windows standalone target configures, builds, launches, resizes, and exposes no plugin formats | native app target | Shell source added; build not run | in progress |\n| APP-002 | standalone-first.md, Source selection | WAV/AIFF chooser/drop validates file and displays metadata; invalid replacement preserves prior source | app source panel | Metadata-only shell added; decode tests pending | in progress |\n| APP-003 | standalone-first.md, Mode and actions | Snare/Clap selection works; unimplemented actions remain disabled | app GUI | Shell source added; UI test pending | in progress |\n| HOST-001 | plugin-host-state.md, Targets and formats | VST3/CLAP/AU targets are added only after standalone acceptance | future plugin targets | Deferred | pending |
 | HOST-002 | plugin-host-state.md, MIDI playback | Note, velocity, note-off and overlapping voices behave correctly | playback engine | Not implemented | pending |
 | HOST-003 | plugin-host-state.md, Host automation | Automated generation stays off callback; latest render safely publishes | processor/render control | Not implemented | pending |
 | HOST-004 | plugin-host-state.md, Session persistence | Project restore preserves hit with original source present and missing | state serializer | Not implemented | pending |
