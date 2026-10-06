@@ -180,7 +180,7 @@ void MainComponent::resized()
     area.removeFromTop(gap);
 
     auto sourceArea = area.removeFromTop(compact ? 122 : 146)
-                           .reduced(14, compact ? 8 : 14);
+                           .reduced(14, compact ? 8 : 12);
     sectionSourceLabel.setBounds(sourceArea.removeFromTop(compact ? 18 : 20));
     sourceArea.removeFromTop(compact ? 2 : 4);
 
@@ -256,14 +256,18 @@ void MainComponent::chooseSource()
         juce::File{},
         "*.wav;*.aif;*.aiff");
 
+    const juce::Component::SafePointer<MainComponent> safeThis(this);
     fileChooser->launchAsync(
         juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-        [this](const juce::FileChooser& chooser)
+        [safeThis](const juce::FileChooser& chooser)
         {
             const auto selected = chooser.getResult();
-            fileChooser.reset();
+            if (safeThis == nullptr)
+                return;
+
+            safeThis->fileChooser.reset();
             if (selected.existsAsFile())
-                loadSourceMetadata(selected);
+                safeThis->loadSourceMetadata(selected);
         });
 }
 
