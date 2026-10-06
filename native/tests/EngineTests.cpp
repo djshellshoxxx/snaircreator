@@ -1,5 +1,7 @@
 #include <JuceHeader.h>
 #include "Parameters.h"
+#include "FactoryPresets.h"
+#include "SourceLoader.h"
 #include "SourceAnalyzer.h"
 #include "SnairEngine.h"
 #include "SessionStore.h"
@@ -7,6 +9,33 @@
 
 namespace
 {
+bool writeTestAudio(const juce::File& file,bool aiff)
+{
+    juce::AudioBuffer<float> buffer(2,4800);
+    for(int i=0;i<buffer.getNumSamples();++i)
+    {
+        const float x=0.35f*std::sin(juce::MathConstants<float>::twoPi*220.0f*(float)i/48000.0f);
+        buffer.setSample(0,i,x);
+        buffer.setSample(1,i,x*0.8f);
+    }
+    std::unique_ptr<juce::OutputStream> stream=file.createOutputStream();
+    if(!stream) return false;
+    auto options=juce::AudioFormatWriter::Options{}.withSampleRate(48000.0).withNumChannels(2).withBitsPerSample(24);
+    std::unique_ptr<juce::AudioFormatWriter> writer;
+    if(aiff)
+    {
+        juce::AiffAudioFormat format;
+        writer=format.createWriterFor(stream,options);
+    }
+    else
+    {
+        juce::WavAudioFormat format;
+        writer=format.createWriterFor(stream,options);
+    }
+    if(!writer) return false;
+    return writer->writeFromAudioSampleBuffer(buffer,0,buffer.getNumSamples());
+}
+
 SourceAudio makeSource(bool noisy=false)
 {
     SourceAudio s;
@@ -32,6 +61,15 @@ public:
   auto s=makeSource();SourceAnalysis a;juce::String e;expect(SourceAnalyzer::analyze(s,a,e));expect(a.peak>0.1f);expect(a.rms>0);expect(a.fingerprint!=0);expect(a.strongestTransientSample>8000);
   beginTest("rejects silence");
   s.samples.clear();expect(!SourceAnalyzer::analyze(s,a,e));expect(e.isNotEmpty());
+
+  beginTest("analysis removes DC and provides complete descriptors");
+  s=makeSource();
+  for(int i=0;i<s.samples.getNumSamples();++i) s.samples.addSample(0,i,0.2f);
+  expect(SourceAnalyzer::analyze(s,a,e));
+  expectWithinAbsoluteError(a.dcOffset,0.2f,0.02f);
+  expect(a.spectralRolloffHz>0.0f);expect(a.spectralFlatness>=0.0f&&a.spectralFlatness<=1.0f);
+  expect(a.transientDensityPerSecond>0.0f);expect(a.attackWindowEnd>a.attackWindowStart);
+  expect(a.tailWindowEnd>=a.tailWindowStart);
  }
 };
 
@@ -60,6 +98,28 @@ public:
   beginTest("randomize and mutate stay in bounds and preserve mode");
   const auto mode=p.mode;auto r=SnairEngine::randomized(p,1234);expect(r.mode==mode);expect(r.clapCount>=2&&r.clapCount<=6);expect(r.bodyFreqHz>=70&&r.bodyFreqHz<=450);
   auto m=SnairEngine::mutated(p,2222);expect(m.mode==mode);expect(m.sourceCharacter>=0&&m.sourceCharacter<=1);expect(m.driveDb>=0&&m.driveDb<=24);
+ }
+};
+
+class SourceLoaderTests final:public juce::UnitTest
+{
+public:
+ SourceLoaderTests():juce::UnitTest("SourceLoader"){}
+ void runTest() override
+ {
+  const auto root=juce::File::getSpecialLocation(juce::File::tempDirectory)
+      .getNonexistentChildFile("snaircreator-source-tests","",true);
+  expect(root.createDirectory());
+  juce::String e;
+  beginTest("decodes WAV and AIFF with stereo metadata");
+  const auto wav=root.getChildFile("source.wav");const auto aiff=root.getChildFile("source.aiff");
+  expect(writeTestAudio(wav,false));expect(writeTestAudio(aiff,true));
+  auto w=SourceLoader::decode(wav,e);expect(w!=nullptr);expectEquals(w?w->channelCount:0,2);expect(w&&w->fileSizeBytes>0);
+  auto a=SourceLoader::decode(aiff,e);expect(a!=nullptr);expectEquals(a?a->channelCount:0,2);
+  beginTest("corrupt replacement is rejected");
+  const auto bad=root.getChildFile("bad.wav");expect(bad.replaceWithText("not audio"));
+  auto invalid=SourceLoader::decode(bad,e);expect(invalid==nullptr);expect(e.isNotEmpty());
+  expect(root.deleteRecursively());
  }
 };
 
@@ -106,7 +166,26 @@ public:
  }
 };
 
+class PresetRecipeTests final:public juce::UnitTest
+{
+public:
+ PresetRecipeTests():juce::UnitTest("Factory presets"){}
+ void runTest() override
+ {
+  beginTest("factory recipes are bounded and have unique names");
+  juce::StringArray names;
+  for(const auto& preset:FactoryPresets::all())
+  {
+   auto p=preset.parameters;p.sanitize();
+   expect(p==preset.parameters);expect(!names.contains(preset.name));names.add(preset.name);
+  }
+  expect(FactoryPresets::all().size()>=8);
+ }
+};
+
 static AnalyzerTests analyzerTests;
 static EngineTests engineTests;
+static SourceLoaderTests sourceLoaderTests;
 static IoTests ioTests;
+static PresetRecipeTests presetRecipeTests;
 }
