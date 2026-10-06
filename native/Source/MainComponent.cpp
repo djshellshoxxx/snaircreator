@@ -3,6 +3,7 @@
 #include "SourceLoader.h"
 #include "SnairEngine.h"
 #include "SessionStore.h"
+#include "FactoryPresets.h"
 #include "WavExporter.h"
 
 namespace
@@ -45,7 +46,7 @@ MainComponent::MainComponent()
     addAndMakeVisible(sourceHintLabel);
     addAndMakeVisible(waveform);
 
-    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&loadPresetButton,&advancedButton})
+    for(auto* b:{&loadSourceButton,&snareButton,&clapButton,&previewButton,&randomizeButton,&mutateButton,&undoButton,&resetButton,&exportButton,&savePresetButton,&savePresetAsButton,&loadPresetButton,&advancedButton})
     {
         configureButton(*b);
         addAndMakeVisible(*b);
@@ -59,8 +60,21 @@ MainComponent::MainComponent()
     resetButton.onClick=[this]{resetParameters();};
     exportButton.onClick=[this]{exportWav();};
     savePresetButton.onClick=[this]{savePreset();};
+    savePresetAsButton.onClick=[this]{savePresetAs();};
     loadPresetButton.onClick=[this]{loadPreset();};
     advancedButton.onClick=[this]{toggleAdvanced();};
+
+    presetSelector.setTextWhenNothingSelected("FACTORY PRESETS");
+    int presetId=1;
+    for(const auto& preset:FactoryPresets::all())
+        presetSelector.addItem(preset.name,presetId++);
+    presetSelector.onChange=[this]
+    {
+        const int index=presetSelector.getSelectedId()-1;
+        if(index>=0) applyFactoryPreset(index);
+    };
+    presetSelector.setTooltip("Load a source-independent factory parameter recipe.");
+    addAndMakeVisible(presetSelector);
 
     snareButton.setRadioGroupId(1);
     clapButton.setRadioGroupId(1);
@@ -224,11 +238,16 @@ void MainComponent::resized()
 
     a.removeFromTop(10);
     auto bottom=a.removeFromTop(38);
-    exportButton.setBounds(bottom.removeFromRight(130));
-    bottom.removeFromRight(6);
-    savePresetButton.setBounds(bottom.removeFromRight(120));
-    bottom.removeFromRight(6);
-    loadPresetButton.setBounds(bottom.removeFromRight(120));
+    exportButton.setBounds(bottom.removeFromRight(120));
+    bottom.removeFromRight(5);
+    savePresetAsButton.setBounds(bottom.removeFromRight(86));
+    bottom.removeFromRight(5);
+    savePresetButton.setBounds(bottom.removeFromRight(72));
+    bottom.removeFromRight(5);
+    loadPresetButton.setBounds(bottom.removeFromRight(72));
+    bottom.removeFromRight(5);
+    presetSelector.setBounds(bottom.removeFromRight(170));
+    bottom.removeFromRight(8);
     statusLabel.setBounds(bottom);
 }
 
@@ -502,18 +521,42 @@ void MainComponent::exportWav()
 
 void MainComponent::savePreset()
 {
-    fileChooser=std::make_unique<juce::FileChooser>(
-        "Save preset",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("SnairCreator.preset.json"),
-        "*.json");
-    auto p=parameters;
+    syncParametersFromControls();
+    if(currentPresetFile==juce::File{})
+    {
+        savePresetAs();
+        return;
+    }
+
+    juce::String error;
+    if(PresetManager::save(currentPresetFile,parameters,error))
+        statusLabel.setText("Saved preset "+currentPresetFile.getFileName(),juce::dontSendNotification);
+    else
+        statusLabel.setText(error,juce::dontSendNotification);
+}
+
+void MainComponent::savePresetAs()
+{
+    syncParametersFromControls();
+    const auto suggested=currentPresetFile==juce::File{}
+        ? juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("SnairCreator.preset.json")
+        : currentPresetFile;
+
+    fileChooser=std::make_unique<juce::FileChooser>("Save preset as",suggested,"*.json");
+    const auto p=parameters;
     juce::Component::SafePointer<MainComponent> safe(this);
     fileChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::warnAboutOverwriting,
         [safe,p](const juce::FileChooser& chooser)
         {
             if(!safe || chooser.getResult()==juce::File{}) return;
+            const auto target=chooser.getResult().withFileExtension(".json");
             juce::String error;
-            safe->statusLabel.setText(PresetManager::save(chooser.getResult(),p,error)?"Preset saved":error,juce::dontSendNotification);
+            if(PresetManager::save(target,p,error))
+            {
+                safe->currentPresetFile=target;
+                safe->statusLabel.setText("Saved preset "+target.getFileName(),juce::dontSendNotification);
+            }
+            else safe->statusLabel.setText(error,juce::dontSendNotification);
         });
 }
 
@@ -530,6 +573,8 @@ void MainComponent::loadPreset()
             if(PresetManager::load(chooser.getResult(),p,error))
             {
                 safe->parameters=p;
+                safe->currentPresetFile=chooser.getResult();
+                safe->presetSelector.setSelectedId(0,juce::dontSendNotification);
                 safe->syncControlsFromParameters();
                 if(safe->source)
                     safe->renderCurrent("Preset load");
@@ -655,4 +700,21 @@ void MainComponent::restoreSession()
             }
         });
     });
+}
+
+
+void MainComponent::applyFactoryPreset(int index)
+{
+    const auto& presets=FactoryPresets::all();
+    if(index<0 || index>=static_cast<int>(presets.size())) return;
+    undoParameters=parameters;
+    hasUndo=true;
+    parameters=presets[(size_t)index].parameters;
+    currentPresetFile={};
+    syncControlsFromParameters();
+    refreshActionState();
+    if(source)
+        renderCurrent("Factory preset");
+    else
+        statusLabel.setText("Factory preset selected. Load a source to render it.",juce::dontSendNotification);
 }
