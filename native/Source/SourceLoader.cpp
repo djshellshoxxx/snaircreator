@@ -12,7 +12,7 @@ std::shared_ptr<SourceAudio> SourceLoader::decode(const juce::File& file,
     const auto extension=file.getFileExtension().toLowerCase();
     if(extension!=".wav" && extension!=".aif" && extension!=".aiff")
     {
-        errorMessage="Only WAV and AIFF source files are supported.";
+        errorMessage="Only WAV or AIFF source files are supported.";
         return {};
     }
 
