@@ -768,7 +768,7 @@ void MainComponent::applyFactoryPreset(int index)
     undoParameters=parameters;
     hasUndo=true;
     parameters=presets[(size_t)index].parameters;
-    currentPresetFile={};
+    currentPresetFile=juce::File{};
     syncControlsFromParameters();
     refreshActionState();
     if(source)
