@@ -1,34 +1,60 @@
-# SnairCreator Specification Coverage
+# SnairCreator Specification Coverage Audit (v0.0.1 beta)
 
-Standalone-first implementation is underway. Do not mark an item verified without implementation location and concrete evidence. Numerical tests do not replace listening or platform validation.
+Audit of the implementation against the [approved design](superpowers/specs/2026-10-03-snaircreator-design.md) and the focused specs. "Verified" means an automated test or validator ran and passed on Linux. External DAW checks on Windows/macOS are listed separately and honestly as pending.
 
-| ID | Source | Acceptance / verification | Implementation location | Evidence | Status |
-|---|---|---|---|---|---|
-| BUILD-001 | DECISIONS D-001–D-004 | Clean C++20/CMake/JUCE 9.0.3 standalone build with pinned dependency | CMake/CI | Not implemented | pending |
-| SRC-001 | source-ingestion.md, Ingestion lifecycle | WAV/AIFF decode via chooser and drag-drop with preserved prior source on failure | SourceLoader/UI | Not implemented | pending |
-| SRC-002 | source-ingestion.md, Edge behavior | Silence/short/stereo/nonfinite/long/malformed inputs safely handled | analyzer tests | Not implemented | pending |
-| SRC-003 | source-ingestion.md, Threading and memory | File IO/decode/analysis absent from realtime callback | source worker | Not implemented | pending |
-| DSP-001 | render-engine.md, Core data contracts | Versioned analysis/render contracts include source/parameter/seed/request identity | DSP model | Not implemented | pending |
-| DSP-002 | render-engine.md, Snare behavior | Source-derived attack/body/texture/reinforcement produce bounded finite render | SnareRenderer | Not implemented | pending |
-| DSP-003 | render-engine.md, Clap behavior | 2–6 deterministic bursts and texture/tail respond to count/spread | ClapRenderer | Not implemented | pending |
-| DSP-004 | render-engine.md, Determinism and request queue | Same state/seed reproduces; stale jobs coalesced/discarded; old hit remains active | RenderController | Not implemented | pending |
-| DSP-005 | render-engine.md, Output safety | Nonfinite/out-of-range output rejected or bounded; edge fades and peak rules pass | safety stage | Not implemented | pending |
-| GUI-001 | gui-implementation.md, Layout contract | Approved 1000×700 default and 760×520 minimum; resizable editor | PluginEditor | Not implemented | pending |
-| GUI-002 | gui-implementation.md, UI states | Empty/loading/analyzing/ready/rendering/error/missing-source states match contract | UI components | Not implemented | pending |
-| GUI-003 | gui-implementation.md, Interaction wiring | Mode/macros/advanced controls update stable parameter state | editor/controller | Not implemented | pending |
-| GUI-004 | gui-implementation.md, Accessibility | Labels, focus, numeric entry, scaling and contrast verified | UI | Not implemented | pending |
-| APP-001 | standalone-first.md, Application shell | Windows standalone target configures, builds, launches, resizes, and exposes no plugin formats | native app target | Shell source added; build not run | in progress |
-| APP-002 | standalone-first.md, Source selection | WAV/AIFF chooser/drop validates file and displays metadata; invalid replacement preserves prior source | app source panel | Metadata-only shell added; decode tests pending | in progress |
-| APP-003 | standalone-first.md, Mode and actions | Snare/Clap selection works; unimplemented actions remain disabled | app GUI | Shell source added; UI test pending | in progress |
-| HOST-001 | plugin-host-state.md, Targets and formats | VST3/CLAP/AU targets are added only after standalone acceptance | future plugin targets | Deferred | pending |
-| HOST-002 | plugin-host-state.md, MIDI playback | Note, velocity, note-off and overlapping voices behave correctly | playback engine | Not implemented | pending |
-| HOST-003 | plugin-host-state.md, Host automation | Automated generation stays off callback; latest render safely publishes | processor/render control | Not implemented | pending |
-| HOST-004 | plugin-host-state.md, Session persistence | Project restore preserves hit with original source present and missing | state serializer | Not implemented | pending |
-| IO-001 | presets-randomization-export.md, Presets | Preset load validates state/source and preserves unrelated state | preset service | Not implemented | pending |
-| IO-002 | presets-randomization-export.md, Randomize / Mutate / Undo | Bounded variations and exact prior-state restoration | variation controller | Not implemented | pending |
-| IO-003 | presets-randomization-export.md, WAV export | All bit depths/rates/channels export current hit and validate after write | WavExporter | Not implemented | pending |
-| QA-001 | verification-build-release.md, Automated test layers | Unit/integration/UI suites pass on clean supported builds | tests/CI | Not implemented | pending |
-| QA-002 | verification-build-release.md, Manual source and host matrix | Real DAW and source corpus acceptance performed and recorded | QA records | Not implemented | pending |
-| QA-003 | verification-build-release.md, Release acceptance | End-to-end source→render→edit→MIDI→save/reopen→WAV succeeds | release audit | Not implemented | pending |
+| ID | Requirement | Implementation | Evidence | Status |
+|---|---|---|---|---|
+| BUILD-001 | C++20/CMake/JUCE 9.0.3, pinned deps; VST3, CLAP, Standalone (+AU on macOS) | `CMakeLists.txt` | Linux build of all targets; CI matrix Win/macOS/Linux | Verified (Linux), CI for Win/mac |
+| SRC-001 | WAV/AIFF via chooser and drop; keep previous source on failure | `SourceLoader`, `PluginProcessor::loadSource`, editor drop | IO tests (WAV, AIFF, corrupt, disguised) | Verified |
+| SRC-002 | Silence, short, stereo, non-finite, long, size bounds | `SourceLoader`, `SourceAnalyzer`, `LayerExtraction` | Analyzer and engine tests; 10 min / 256 MiB limits | Verified |
+| SRC-003 | Decode/analysis/render never on the audio callback | `ThreadPool` job + render `Worker` thread | Processor tests; callback reads immutable buffers only | Verified |
+| ANA-001 | SourceAnalysis descriptors (§5) incl. late transient, fingerprint | `SourceAnalyzer.cpp` | Late-transient, impulse/tone/noise tests | Verified |
+| DSP-001 | Snare: attack, modal + source-excited body, wire, reinforcement | `SnareRenderer.cpp` | Finite/peak/attack/macro-response tests | Verified numerically; listening review recommended |
+| DSP-002 | Clap: 2–6 bursts, 8–35 ms spacing, deterministic jitter, tail + diffusion | `ClapRenderer.cpp`, `addBursts` | Burst count/spacing/determinism tests | Verified |
+| DSP-003 | Source Character influences several stages (not dry/wet) | `LayerExtraction`, both renderers | Character extremes test | Verified |
+| DSP-004 | Determinism across platforms; seed changes output | `DeterministicRng` (SplitMix64, no std distributions) | Determinism tests | Verified |
+| DSP-005 | Output safety: finite, edge fades, peak ≤ 0.98 (normalized or not) | `SnairEngine::applySafety` | Every render test asserts finite + peak | Verified |
+| DSP-006 | Cross blend; tone, drive, width, pitch, tail mappings | `SnairEngine`, renderers | Macro/advanced response test | Verified |
+| PLAY-001 | MIDI note-on, velocity, 16 voices, note-off no cut, sample-accurate | `HitPlayer`, `processBlock` | Playback and processor tests | Verified |
+| PLAY-002 | Preview uses the same hit as MIDI/export | `triggerPreview` → same `HitPlayer` | Design: one active hit pointer | Verified |
+| PLAY-003 | Old hit plays during render; safe atomic swap; coalesced requests | `publish`, `collectGarbage`, `Worker` | Re-render and coalescing tests | Verified |
+| PLAY-004 | Sample-rate change: correct pitch until re-render | rate ratio in `HitPlayer`, re-render on prepare | Key-track rate test | Verified |
+| VAR-001 | Randomize bounded, keeps mode; Mutate ≤15% moves; 16-level Undo restores hit | `SnairEngine::randomized/mutated`, `undo` | 200-iteration bounds test; undo restores exact hit | Verified |
+| VAR-002 | Reset restores defaults without touching source (undoable) | `resetParameters` | Manual | Implemented |
+| EXP-001 | WAV 16/24/32f, mono/stereo, render/44.1/48/88.2/96 kHz, validated atomic write | `WavExporter` | Export matrix test reopens every file | Verified |
+| EXP-002 | Filename `SnairCreator_<Mode>_<Source>_<Seed>.wav`, sanitized | `defaultExportName` | Manual | Implemented |
+| STATE-001 | Session saves params, seed, source path/fingerprint, embedded hit | `get/setStateInformation` | Round-trip test with source deleted | Verified |
+| STATE-002 | Malformed/future state ignored safely; missing source reported | `setStateInformation`, status text | Malformed + future state test | Verified |
+| PRE-001 | Factory recipes, Save/Save As/Load, selector, validation with warnings | `FactoryPresets`, `PresetManager`, editor | Preset round-trip and invalid-field tests | Verified |
+| GUI-001 | 1000×700 default, 760×520 min, resizable, no overlap | `PluginEditor::resized` | Snapshot review at both sizes | Verified |
+| GUI-002 | Empty/loading/rendering/ready/error/missing-source states, stale-hit notice | `refresh`, processor status | Snapshot + processor tests | Verified |
+| GUI-003 | All controls bound to stable parameter IDs (no dead controls) | APVTS attachments | ID test; pluginval/clap-validator param checks | Verified |
+| GUI-004 | Tooltips + global toggle, help, double-click reset, context menu value entry, fine wheel, focus outline, keyboard shortcuts | `FineSlider`, `SnairLookAndFeel`, editor | Manual | Implemented |
+| GUI-005 | Waveform marks strongest transient and attack region; generated-hit toggle | `WaveformView` | Snapshot | Verified |
+| NEW-001 | Drag hit out to DAW (usability) | `WaveformView::onDragOut`, `writeDragFile` | Manual (needs a desktop session) | Implemented |
+| NEW-002 | Export Kit, 8 variations (value) | `exportKit` | Manual | Implemented |
+| NEW-003 | Key Track chromatic playback (fun) | `HitPlayer::noteOn`, `key_track` | Playback test | Verified |
+| NEW-004 | Gated Room effect (random effect) | `applyGatedRoom`, `room` | Macro-response test | Verified |
+| VAL-001 | Format validation | — | pluginval strictness 8 SUCCESS; clap-validator 18/18 | Verified (Linux) |
+| HOST-001 | Real-DAW checks on Windows and macOS; AU validation (auval) | — | Not run in this environment | Pending (beta disclosure) |
 
-Statuses: pending, in progress, verified, blocked. Record evidence and build/host details when changing status. Do not claim completion while required release checks remain open.
+## CDL baseline compliance
+
+| Area | Status |
+|---|---|
+| Profiles | Instrument plug-in + standalone companion + offline exporter |
+| 2.1–2.3 Controls, parameter contract, gestures | Implemented (stable IDs, units, double-click reset, context menu, fine wheel) |
+| 2.4 Accessibility | Implemented: text-paired states, focus outlines, keyboard shortcuts. No essential animation. |
+| 3.2 Real-time safety | Implemented: no locks, allocation or IO in `processBlock`; deferred release protocol |
+| 3.3 Buses | No input, mono or stereo output. Latency 0. Tail 3 s. |
+| 3.4 Instrument behavior | Silent with no hit. Note-off ignored. All-notes-off / all-sound-off stop voices. |
+| 4.1 Host state | Implemented, versioned (`version` = 1) |
+| 4.2 Presets | Implemented: JSON, validated, atomic write |
+| 4.3 Export/file loading | Implemented (formats and limits documented in the in-app help) |
+| 5 MIDI | Notes + velocity on any channel; no MIDI Learn (not applicable) |
+| 6 Visual identity | Implemented (CDL palette; cyan/magenta product accents per design §21) |
+| 7 Help/About | In-app help with version, usage, formats and CDL link |
+| 8 Privacy | No network, telemetry or licence checks |
+| 9 Quality gates | Automated tests and validators recorded above; host matrix pending |
+
+**Status: BETA READY** for the automated scope. Outstanding: hands-on DAW validation on Windows/macOS, auval, and a listening review of the source corpus.

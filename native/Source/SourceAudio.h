@@ -13,6 +13,7 @@ struct SourceAudio
     int channelCount = 0;
     int64_t frameCount = 0;
     int sanitizedSampleCount = 0;
+    int64_t fileSizeBytes = 0;
 
     double durationSeconds() const noexcept
     {

@@ -1,0 +1,133 @@
+name: build
+on:
+  push:
+    branches: [ main, "claude/**" ]
+    tags: [ "v*" ]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  APP_VERSION: 0.0.1
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows, os: windows-latest }
+          - { name: macOS, os: macos-latest }
+          - { name: Linux, os: ubuntu-24.04 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxcomposite-dev libxext-dev libxi-dev libxss-dev libxtst-dev libxrender-dev libgl1-mesa-dev \
+            libfreetype-dev libfontconfig1-dev libjack-jackd2-dev xvfb
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake -S . -B build -A x64 -DSNAIRCREATOR_BUILD_TESTS=ON
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            cmake -S . -B build -G Xcode -DSNAIRCREATOR_BUILD_TESTS=ON
+          else
+            cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSNAIRCREATOR_BUILD_TESTS=ON
+          fi
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a ctest --test-dir build -C Release --output-on-failure
+          else
+            ctest --test-dir build -C Release --output-on-failure
+          fi
+
+      - name: Package
+        shell: bash
+        run: |
+          set -e
+          V="v${APP_VERSION}-beta"
+          A=build/SnairCreator_artefacts/Release
+          mkdir -p dist stage
+          cp packaging/README.txt stage/README.txt
+          cp LICENSE stage/LICENSE.txt
+          find build -name "SnairCreator.clap" -not -path "*/CMakeFiles/*" | head -5
+          CLAP=$(find build -name "SnairCreator.clap" -not -path "*/CMakeFiles/*" -not -path "*.dSYM*" | head -1)
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp "$A/Standalone/SnairCreator.exe" stage/
+            cp -r "$A/VST3/SnairCreator.vst3" stage/
+            cp "$CLAP" stage/SnairCreator.clap
+            (cd stage && 7z a -tzip "../dist/SnairCreator-$V-Windows-Portable.zip" SnairCreator.exe README.txt LICENSE.txt > /dev/null)
+            (cd stage && 7z a -tzip "../dist/SnairCreator-$V-Windows-VST3.zip" SnairCreator.vst3 README.txt LICENSE.txt > /dev/null)
+            (cd stage && 7z a -tzip "../dist/SnairCreator-$V-Windows-CLAP.zip" SnairCreator.clap README.txt LICENSE.txt > /dev/null)
+            ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+            if [ ! -f "$ISCC" ]; then choco install innosetup -y --no-progress > /dev/null; fi
+            "$ISCC" //Q "//DAppVersion=${APP_VERSION}" "//DSourceDir=$(cygpath -w "$PWD/stage")" "//DOutputDir=$(cygpath -w "$PWD/dist")" packaging/SnairCreator.iss
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            cp -R "$A/Standalone/SnairCreator.app" "$A/VST3/SnairCreator.vst3" "$A/AU/SnairCreator.component" stage/
+            cp -R "$CLAP" stage/SnairCreator.clap
+            for b in stage/SnairCreator.app stage/SnairCreator.vst3 stage/SnairCreator.component stage/SnairCreator.clap; do codesign --force --deep -s - "$b"; done
+            (cd stage && ditto -c -k --keepParent SnairCreator.app "../dist/SnairCreator-$V-macOS-Portable.zip")
+            (cd stage && zip -qry "../dist/SnairCreator-$V-macOS-VST3.zip" SnairCreator.vst3 README.txt LICENSE.txt)
+            (cd stage && zip -qry "../dist/SnairCreator-$V-macOS-CLAP.zip" SnairCreator.clap README.txt LICENSE.txt)
+            (cd stage && zip -qry "../dist/SnairCreator-$V-macOS-AU.zip" SnairCreator.component README.txt LICENSE.txt)
+            mkdir -p pkg/app pkg/vst3 pkg/clap pkg/au
+            cp -R stage/SnairCreator.app pkg/app/; cp -R stage/SnairCreator.vst3 pkg/vst3/; cp -R stage/SnairCreator.clap pkg/clap/; cp -R stage/SnairCreator.component pkg/au/
+            ID=com.circuitdriftlabs.snaircreator
+            pkgbuild --root pkg/app --install-location /Applications --identifier $ID.app --version $APP_VERSION pkg/app.pkg
+            pkgbuild --root pkg/vst3 --install-location /Library/Audio/Plug-Ins/VST3 --identifier $ID.vst3 --version $APP_VERSION pkg/vst3.pkg
+            pkgbuild --root pkg/clap --install-location /Library/Audio/Plug-Ins/CLAP --identifier $ID.clap --version $APP_VERSION pkg/clap.pkg
+            pkgbuild --root pkg/au --install-location /Library/Audio/Plug-Ins/Components --identifier $ID.au --version $APP_VERSION pkg/au.pkg
+            productbuild --package pkg/app.pkg --package pkg/vst3.pkg --package pkg/clap.pkg --package pkg/au.pkg "dist/SnairCreator-$V-macOS-Installer.pkg"
+          else
+            cp "$A/Standalone/SnairCreator" stage/
+            cp -r "$A/VST3/SnairCreator.vst3" stage/
+            cp "$CLAP" stage/SnairCreator.clap
+            tar -C stage -czf "dist/SnairCreator-$V-Linux-Portable.tar.gz" SnairCreator README.txt LICENSE.txt
+            tar -C stage -czf "dist/SnairCreator-$V-Linux-VST3.tar.gz" SnairCreator.vst3 README.txt LICENSE.txt
+            tar -C stage -czf "dist/SnairCreator-$V-Linux-CLAP.tar.gz" SnairCreator.clap README.txt LICENSE.txt
+          fi
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SnairCreator-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SnairCreator v0.0.1 beta
+          prerelease: true
+          body_path: docs/RELEASE_NOTES.md
+          files: dist/*

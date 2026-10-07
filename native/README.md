@@ -1,5 +1,11 @@
-# Native app
+# Native source
 
-The first target is a standalone JUCE desktop app. App startup and GUI live in `Source/`. Keep future analysis and rendering code in separate app-independent modules; plugin wrappers and plugin format targets are deferred.
+One JUCE `AudioProcessor` (`PluginProcessor`) and editor (`PluginEditor`) serve every format (Standalone, VST3, CLAP, AU).
 
-See [BUILDING.md](../BUILDING.md) and the [standalone-first specification](../docs/superpowers/specs/standalone-first.md).
+- Analysis/render (no UI, no audio thread): `SourceLoader`, `SourceAnalyzer`, `LayerExtraction`, `SnareRenderer`, `ClapRenderer`, `SnairEngine`, `DeterministicRng`
+- Realtime playback: `HitPlayer`
+- Persistence and IO: `PresetManager`, `FactoryPresets`, `WavExporter`, and processor state
+- UI: `PluginEditor`, `WaveformView`
+- Tests: `tests/EngineTests.cpp`
+
+See [BUILDING.md](../BUILDING.md).

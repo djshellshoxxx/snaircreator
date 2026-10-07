@@ -1,27 +1,38 @@
 # SnairCreator
 
-SnairCreator is a JUCE/C++ desktop application that will turn a user-provided audio source into playable Snare or Clap sounds. The first delivery is the standalone app; VST3, CLAP, and AU formats are planned for later.
+SnairCreator is a JUCE/C++ percussion instrument by Circuit Drift Labs. It turns any WAV or AIFF sound into a playable **snare** or **clap** while keeping some of the source's character.
 
-**Repository status: early standalone implementation.** The native app shell and GUI are in place. Audio transformation, playback, and WAV export are still pending; no built binaries are published.
+**Status: v0.0.1 beta.** Standalone, VST3 and CLAP on Windows, macOS (plus AU) and Linux. Download from the [Releases page](https://github.com/djshellshoxxx/snaircreator/releases).
 
-## Start here
+## Features
 
-- [Standalone-first specification](docs/superpowers/specs/standalone-first.md)
-- [Standalone-first implementation plan](docs/superpowers/plans/2026-10-06-snaircreator-standalone-first.md)
-- [Approved design specification](docs/superpowers/specs/2026-10-03-snaircreator-design.md)
-- [Focused specification index](docs/superpowers/specs/README.md)
-- [Plugin-format backlog plan](docs/superpowers/plans/2026-10-04-snaircreator-vst-implementation.md)
-- [Requirement coverage tracker](docs/spec-coverage.md)
-- [Build handoff](TODO.md)
-- [Decisions](DECISIONS.md)
-- [License](LICENSE)
-- [Copyright and trademark notice](COPYRIGHT-TRADEMARK.md)
+- Load or drag in one WAV/AIFF source. It is analyzed off the audio thread (transients, spectrum, body resonance, noisiness).
+- **Snare** (attack crack + modal shell body + source-grain wires) and **Clap** (2–6 deterministic micro-bursts + diffused texture tail) engines.
+- Source Character, six macros (Punch, Snap, Body, Texture, Dirt, Size) and an Advanced panel with every parameter from design spec §12.
+- Preview, MIDI playback (any note, velocity, 16 one-shot voices, sample-accurate), Randomize / Mutate / 16-level Undo / Reset.
+- Exact-render WAV export (16/24-bit PCM, 32-bit float, mono/stereo, 44.1–96 kHz). Exports go to a temp file, get validated, then move into place.
+- Factory and user presets (`.snairpreset`). Host sessions and the standalone app embed the rendered hit, so the sound comes back even if the source file moved.
 
-## Focused specifications
+### New in v0.0.1
 
-GUI, source ingestion, render engine, standalone behavior, presets/export, and verification/build/release contracts are listed in the [specification index](docs/superpowers/specs/README.md). Plugin formats follow after the standalone workflow is stable.
+| Category | Feature |
+|---|---|
+| More usable | **Drag-out:** click the waveform to view the generated hit, then drag it straight into your DAW or file browser. Keyboard shortcuts too: Space, R, M, Ctrl/Cmd+Z. |
+| More valuable | **Export Kit:** writes the current sound plus 7 coherent mutations as a named WAV sample-kit folder in one click. |
+| More fun | **Key Track:** play the hit chromatically across the MIDI keyboard (C3 = original pitch), for pitched snare rolls and clap melodies. |
+| Random effect | **Gated Room:** an 80s-style gated reverb burst rendered into the hit (Size lengthens the gate). |
 
+## Documentation
 
-## Required shared plug-in standard
+- [Build guide](BUILDING.md) · [Release notes](docs/RELEASE_NOTES.md) · [Spec coverage audit](docs/spec-coverage.md) · [Decisions](DECISIONS.md) · [TODO](TODO.md)
+- [Approved design specification](docs/superpowers/specs/2026-10-03-snaircreator-design.md) · [Focused specification index](docs/superpowers/specs/README.md)
+- [Circuit Drift Labs Shared Audio Plugin Standard](docs/standards/CDL_PLUGIN_BASELINE.md). This is the required shared baseline; its compliance record is in the [spec coverage audit](docs/spec-coverage.md#cdl-baseline-compliance).
+- In-app **HELP** has the full user guide.
 
-This project follows the [Circuit Drift Labs Shared Audio Plugin Standard](docs/standards/CDL_PLUGIN_BASELINE.md). It is required for the plug-in target; standalone-only requirements apply only when a standalone target is included. The product-specific specification supplements the shared standard and records the applicable profiles, compliance status, and any exceptions.
+## Privacy
+
+SnairCreator makes no network connections and has no telemetry, accounts or licence checks. Audio stays on your machine.
+
+## License
+
+See [LICENSE](LICENSE) and [COPYRIGHT-TRADEMARK.md](COPYRIGHT-TRADEMARK.md). JUCE and clap-juce-extensions are third-party dependencies under their own licences (see BUILDING.md).
