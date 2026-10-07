@@ -1,56 +1,72 @@
-#include "ClapRenderer.h"
+#include "Renderers.h"
 #include <cmath>
-#include <vector>
+
+using namespace snairdsp;
 
 namespace
 {
-constexpr float pi=3.14159265358979323846f;
-float envExp(float t,float tau){return std::exp(-t/std::max(0.0001f,tau));}
+// Schroeder allpass used for optional tail diffusion/stereo decorrelation.
+void allpass(std::vector<float>& x, int delay, float g)
+{
+    std::vector<float> buf(static_cast<size_t>(delay), 0.0f);
+    size_t w = 0;
+    for (auto& v : x)
+    {
+        const float d = buf[w];
+        const float in = v + g * d;
+        v = d - g * in;
+        buf[w] = in;
+        w = (w + 1) % buf.size();
+    }
+}
 }
 
-void ClapRenderer::render(juce::AudioBuffer<float>& output,
-                          const SourceAudio& source,
-                          const SnairParameters& p,
-                          const LayerMaterial& m,
-                          double sampleRate,
-                          DeterministicRng& rng)
+// clap = burst1 + ... + burstN + texture tail (+ cross-blend snare body)
+void ClapRenderer::render(juce::AudioBuffer<float>& out, const LayerMaterial& m, const SnairParameters& p,
+                          double sr, DeterministicRng& rng)
 {
-    const int frames=output.getNumSamples();
-    std::vector<int> burstStarts;
-    const int spread=static_cast<int>(sampleRate*(p.clapSpreadMs/1000.0f));
-    for(int b=0;b<p.clapCount;++b)
-        burstStarts.push_back(b*spread+rng.integer(0,std::max(1,spread/3)));
+    const int N = out.getNumSamples();
+    float* L = out.getWritePointer(0);
+    float* R = out.getWritePointer(1);
+    const int last = addBursts(L, R, m, p, sr, p.clapCount, p.clapSpreadMs, 0.55f + 0.6f * p.punch, rng);
 
-    const int burstLen=std::max(8,static_cast<int>(sampleRate*(0.010f+0.018f*p.attack)));
-    for(int i=0;i<frames;++i)
+    const float tailLevel = (0.25f + 0.75f * p.texture) * (0.35f + 0.65f * p.noise);
+    const float centre = 1100.0f + 900.0f * p.snap;
+    for (int ch = 0; ch < 2; ++ch)
     {
-        const float t=static_cast<float>(i/sampleRate);
-        float y=0.0f;
-
-        for(int b=0;b<p.clapCount;++b)
+        auto tail = m.grains[ch];
+        auto n = noise(N, rng);
+        for (int i = 0; i < N; ++i)
+            tail[static_cast<size_t>(i)] = tail[static_cast<size_t>(i)] * m.sourceAmount * 1.4f
+                                         + n[static_cast<size_t>(i)] * (1.1f - 0.7f * m.sourceAmount);
+        bandpass(tail, sr, centre, 0.7f);
+        highpass(tail, sr, 450.0f);
+        if (p.size > 0.4f)
         {
-            const int rel=i-burstStarts[static_cast<size_t>(b)];
-            if(rel>=0 && rel<burstLen)
-            {
-                const float envelope=std::pow(1.0f-static_cast<float>(rel)/burstLen,1.5f);
-                const int srcIndex=m.transientSample+static_cast<int>(rel*m.sourceStep)+rng.integer(0,24);
-                const float src=LayerExtraction::monoSample(source,srcIndex);
-                y+=(m.sourceAmount*src+m.reinforcementAmount*0.75f*rng.bipolar())
-                   *envelope*(0.16f+0.20f*p.snap);
-            }
+            const float g = 0.35f + 0.3f * p.size;
+            allpass(tail, static_cast<int>(sr * (ch ? 0.0047 : 0.0041)), g);
+            allpass(tail, static_cast<int>(sr * (ch ? 0.0113 : 0.0097)), g);
         }
+        // Body: low-mid source weight under the clap.
+        auto weight = m.region[ch];
+        bandpass(weight, sr, 650.0f, 0.8f);
 
-        const float tail=envExp(t,m.tailTimeConstant);
-        const int srcIndex=m.transientSample+static_cast<int>(i*m.sourceStep);
-        const float src=LayerExtraction::monoSample(source,srcIndex);
-        y+=(0.5f*rng.bipolar()+0.5f*src)*tail*(0.11f+0.30f*p.texture)*(0.6f+0.4f*p.noise);
-        if(m.requiresFallback)
-            y+=rng.bipolar()*envExp(t,0.09f)*m.reinforcementAmount*0.05f;
+        float* y = out.getWritePointer(ch);
+        for (int i = 0; i < N; ++i)
+        {
+            const float rel = static_cast<float>((i - last) / sr);
+            const float env = i < last ? 0.25f * std::exp(-static_cast<float>(last - i) / static_cast<float>(sr * 0.01))
+                                       : std::exp(-rel / m.tailTau) * (rel < 0.002f ? 0.6f + 200.0f * rel : 1.0f);
+            const float wEnv = std::exp(-static_cast<float>(i / sr) / (0.02f + 0.05f * p.body));
+            y[i] += tail[static_cast<size_t>(i)] * env * tailLevel * 0.55f
+                  + weight[static_cast<size_t>(i)] * wEnv * m.sourceAmount * 0.35f * p.body;
+        }
+    }
 
-        y+=p.crossBlend*0.12f*std::sin(2.0f*pi*m.bodyFrequencyHz*t)*envExp(t,0.10f);
-        y=std::tanh(y*m.drive)/std::tanh(std::max(1.0f,m.drive));
-        const float side=0.12f*p.width*rng.bipolar();
-        output.setSample(0,i,y*(1.0f-side));
-        output.setSample(1,i,y*(1.0f+side));
+    if (p.crossBlend > 0.001f)
+    {
+        std::vector<float> body(static_cast<size_t>(N), 0.0f);
+        addModalBody(body.data(), N, sr, m.bodyFrequencyHz, m.bodyTau, 0.3f, 0.7f * p.crossBlend, rng);
+        for (int i = 0; i < N; ++i) { L[i] += body[static_cast<size_t>(i)]; R[i] += body[static_cast<size_t>(i)]; }
     }
 }

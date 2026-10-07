@@ -16,7 +16,7 @@ bool WavExporter::write(const juce::File& file,const RenderedHit& hit,const WavE
         error="The active render has invalid audio metadata.";
         return false;
     }
-    if(opt.sampleRate!=0.0
+    if(std::abs(opt.sampleRate)>0.0
        && (!std::isfinite(opt.sampleRate) || opt.sampleRate<8000.0 || opt.sampleRate>192000.0))
     {
         error="Choose a finite export sample rate between 8 kHz and 192 kHz.";

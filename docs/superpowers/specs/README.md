@@ -2,7 +2,7 @@
 
 ## Project status
 
-The repository currently contains an approved design specification and a detailed implementation plan; the inspected repository has no application source or top-level README yet. New documents are implementation contracts, not evidence that the instrument exists or has passed host/audio validation.
+v0.0.1 beta implements these specifications (Standalone, VST3, CLAP, AU on macOS). Implementation status and evidence: [spec coverage audit](../../spec-coverage.md). The [CDL Shared Audio Plugin Standard](../../standards/CDL_PLUGIN_BASELINE.md) is the required shared baseline.
 
 ## Precedence
 
