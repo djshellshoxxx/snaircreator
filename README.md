@@ -2,7 +2,18 @@
 
 SnairCreator is a JUCE/C++ desktop application that will turn a user-provided audio source into playable Snare or Clap sounds. The first delivery is the standalone app; VST3, CLAP, and AU formats are planned for later.
 
-**Repository status: early standalone implementation.** The native app shell and GUI are in place. Audio transformation, playback, and WAV export are still pending; no built binaries are published.
+**Repository status: standalone implementation is in verification.** The app now decodes and analyzes WAV/AIFF sources, generates Snare and Clap renders, supports preview, variation, undo/reset, factory and user presets, session recovery, and WAV export. Windows and macOS builds run through GitHub Actions; platform smoke tests and listening review remain release checks.
+
+## Included workflow
+
+- Load one mono or stereo WAV/AIFF file (up to 10 minutes), analyze it, and inspect its waveform and strongest transient.
+- Generate deterministic Snare or Clap renders with six primary macros and a scrollable advanced panel.
+- Preview the active render, randomize or mutate parameters, undo the last variation, and reset to defaults.
+- Save and load JSON presets, use factory recipes, and recover the previous render and settings at startup.
+- Export the active render to WAV as PCM 16-bit, PCM 24-bit, or float 32-bit, with selectable sample rate, channel layout, normalization, and output trim.
+- Open the built-in help and turn contextual tooltips on or off from the title bar.
+
+Plugin formats remain deferred until standalone verification is complete. No release binaries are published yet.
 
 ## Start here
 

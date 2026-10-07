@@ -1,72 +1,100 @@
 #pragma once
-
 #include <JuceHeader.h>
 #include <array>
+#include <atomic>
 #include <memory>
+#include "AdvancedPanel.h"
+#include "Parameters.h"
+#include "PresetManager.h"
+#include "RenderedHit.h"
+#include "SessionStore.h"
+#include "SourceAnalysis.h"
+#include "SourceAudio.h"
+#include "WaveformView.h"
 
-class MainComponent final : public juce::Component,
-                            public juce::FileDragAndDropTarget
+class MainComponent final : public juce::AudioAppComponent,
+                            public juce::FileDragAndDropTarget,
+                            private juce::AsyncUpdater
 {
 public:
     MainComponent();
-    ~MainComponent() override = default;
+    ~MainComponent() override;
 
-    void paint(juce::Graphics& graphics) override;
+    void paint(juce::Graphics&) override;
     void resized() override;
-
-    bool isInterestedInFileDrag(const juce::StringArray& files) override;
-    void filesDropped(const juce::StringArray& files, int x, int y) override;
+    bool isInterestedInFileDrag(const juce::StringArray&) override;
+    void filesDropped(const juce::StringArray&, int, int) override;
+    void prepareToPlay(int, double) override;
+    void getNextAudioBlock(const juce::AudioSourceChannelInfo&) override;
+    void releaseResources() override;
 
 private:
-    static constexpr int macroCount = 6;
+    static constexpr int macroCount=6;
 
-    void configureButton(juce::TextButton& button);
+    void handleAsyncUpdate() override;
+    void configureButton(juce::TextButton&);
+    void configureSlider(juce::Slider&,double,double,double);
     void chooseSource();
-    void loadSourceMetadata(const juce::File& file);
-    void setMode(bool clapSelected);
-    bool hasSupportedExtension(const juce::File& file) const;
-    void showHelp();
-    void showOptions();
-    void applyTooltipSetting();
+    void loadSource(const juce::File&);
+    void renderCurrent(const juce::String& reason);
+    void syncControlsFromParameters();
+    void syncParametersFromControls();
+    void setMode(bool clap);
+    void startPreview();
+    void randomize();
+    void mutate();
+    void undo();
+    void resetParameters();
+    void exportWav();
+    void savePreset();
+    void savePresetAs();
+    void loadPreset();
+    void applyFactoryPreset(int index);
+    void showAbout();
+    void toggleTooltips();
+    void refreshActionState();
+    void toggleAdvanced();
+    void restoreSession();
+    void saveSessionAsync(const SnairParameters&, const RenderedHitPtr&, const juce::File&);
 
-    juce::Label titleLabel;
-    juce::Label buildLabel;
-    juce::Label sectionSourceLabel;
-    juce::Label sourceNameLabel;
-    juce::Label sourceDetailsLabel;
-    juce::Label sourceHintLabel;
-    juce::Label modeLabel;
-    juce::Label characterLabel;
-    juce::Label statusLabel;
-
-    juce::TextButton loadSourceButton { "LOAD SOURCE" };
-    juce::TextButton snareButton { "SNARE" };
-    juce::TextButton clapButton { "CLAP" };
-    juce::TextButton previewButton { "PREVIEW" };
-    juce::TextButton mutateButton { "MUTATE" };
-    juce::TextButton undoButton { "UNDO" };
-    juce::TextButton resetButton { "RESET" };
-    juce::TextButton randomizeButton { "RANDOMIZE" };
-    juce::TextButton exportButton { "EXPORT WAV" };
-    juce::TextButton optionsButton { "OPTIONS" };
-    juce::TextButton helpButton { "HELP" };
-    juce::TextButton closeHelpButton { "CLOSE HELP" };
-
-    juce::Slider sourceCharacterSlider;
-    std::array<juce::Slider, macroCount> macroSliders;
-    std::array<juce::Label, macroCount> macroLabels;
-    std::array<juce::String, macroCount> macroNames {
-        "PUNCH", "SNAP", "BODY", "TEXTURE", "DIRT", "SIZE"
-    };
-
-    juce::TextEditor helpText;
+    juce::Label titleLabel, buildLabel, sectionSourceLabel, sourceNameLabel, sourceDetailsLabel, sourceHintLabel;
+    juce::Label modeLabel, characterLabel, statusLabel;
+    WaveformView waveform;
+    juce::TextButton loadSourceButton{"LOAD SOURCE"}, snareButton{"SNARE"}, clapButton{"CLAP"};
+    juce::TextButton previewButton{"PREVIEW"}, randomizeButton{"RANDOMIZE"}, mutateButton{"MUTATE"}, undoButton{"UNDO"}, resetButton{"RESET"};
+    juce::TextButton exportButton{"EXPORT WAV"}, savePresetButton{"SAVE"}, savePresetAsButton{"SAVE AS"}, loadPresetButton{"LOAD"};
+    juce::TextButton advancedButton{"ADVANCED"}, aboutButton{"HELP"}, tooltipsButton{"TIPS ON"};
+    juce::ComboBox presetSelector;
+    AdvancedPanel advancedPanel;
     std::unique_ptr<juce::TooltipWindow> tooltipWindow;
-    bool tooltipsEnabled = true;
+    bool tooltipsEnabled=true;
+    juce::Slider sourceCharacterSlider;
+    std::array<juce::Slider,macroCount> macroSliders;
+    std::array<juce::Label,macroCount> macroLabels;
+    std::array<juce::String,macroCount> macroNames{"PUNCH","SNAP","BODY","TEXTURE","DIRT","SIZE"};
 
-    juce::AudioFormatManager formatManager;
     std::unique_ptr<juce::FileChooser> fileChooser;
-    juce::File currentSource;
-    bool clapMode = false;
+    juce::File currentPresetFile;
+    SourceAudioPtr source;
+    SourceAnalysis analysis;
+    SnairParameters parameters;
+    SnairParameters undoParameters;
+    bool hasUndo=false;
+    bool advancedVisible=false;
+
+    juce::ThreadPool sourceWorker{1};
+    juce::ThreadPool renderWorker{1};
+    juce::ThreadPool sessionWorker{1};
+    std::atomic<uint64_t> sourceRequest{0};
+    std::atomic<uint64_t> renderRequest{0};
+    std::atomic<bool> recoverySuperseded{false};
+    RenderedHitPtr renderedHit{};
+    std::atomic<int> previewPosition{0};
+    std::atomic<bool> previewActive{false};
+    std::atomic<double> playbackSampleRate{48000.0};
+    std::atomic<float> playbackTrimGain{1.0f};
+    uint64_t generation=0;
+    uint32_t variationCounter=100;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
