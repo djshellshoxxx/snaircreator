@@ -36,3 +36,7 @@ SnairCreator makes no network connections and has no telemetry, accounts or lice
 ## License
 
 See [LICENSE](LICENSE) and [COPYRIGHT-TRADEMARK.md](COPYRIGHT-TRADEMARK.md). JUCE and clap-juce-extensions are third-party dependencies under their own licences (see BUILDING.md).
+
+## Wiki
+
+Wiki source pages are in [docs/wiki/](docs/wiki/Home.md): developer guide and codebase map. `BUILDING.md` and `docs/superpowers/specs/` remain the authority.
