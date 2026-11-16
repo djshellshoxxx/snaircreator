@@ -1,5 +1,5 @@
 **SnairCreator**
 
-- [Home](Home)
-- [Developer Guide](Developer-Guide)
-- [Codebase Map](Codebase-Map)
+- [Home](Home.md)
+- [Developer Guide](Developer-Guide.md)
+- [Codebase Map](Codebase-Map.md)
